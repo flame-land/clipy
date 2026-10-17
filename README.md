@@ -1,6 +1,6 @@
 # Clipy
 
-Clipy is a Discord clip-finder bot that searches YouTube and can send supported public videos as attachments.
+Clipy is a Discord clip-finder bot that searches YouTube and can send supported public videos or audio as attachments.
 
 ## Commands
 
@@ -9,8 +9,8 @@ Slash commands:
 - /clip random — search a random anime-scene query.
 - /clip sources — show supported sources.
 - /clip help — command guide.
-- /download link:<URL> — download a public video.
-- /ping — check latency.
+- /download link:<URL> — choose video quality or audio format.
+- /clip ping — check latency.
 
 Prefix commands (default prefix is !):
 - !clip search goku black
@@ -22,14 +22,20 @@ Prefix commands (default prefix is !):
 
 Mention commands also work, for example: @Clipy download https://...
 
-## Download support
+## Downloads
 
-Allowed hosts: YouTube, Instagram, Facebook/fb.watch, and TikTok. The link must be public and downloadable without login. Each download is limited to 8 MB to fit typical Discord upload limits. Private, restricted, unsupported, or larger videos may fail. Downloads are temporary and are deleted after being sent. Use this only for content you have permission to download; Clipy does not bypass access controls or DRM.
+After running `/download` or `!download`, use the buttons to choose:
+- Video: best available, 1080p, 720p, 480p, or 360p.
+- Audio: MP3 or M4A.
+
+The maximum file size follows the current Discord server's upload limit (with a small safety margin); downloads in DMs use a conservative fallback. A lower quality is more likely to fit. Large downloads can take longer, and audio conversion requires FFmpeg installed on the machine running Clipy.
+
+Supported links: public YouTube, Instagram, Facebook/fb.watch, and TikTok URLs that can be downloaded without logging in. Private, restricted, unavailable, or unsupported content may fail. Files are temporary and are deleted after sending. Use this only for content you have permission to download; Clipy does not bypass access controls or DRM.
 
 ## Setup in Termux
 
     pkg update
-    pkg install git python -y
+    pkg install git python ffmpeg -y
     git clone https://github.com/flame-land/clipy.git
     cd clipy
     python -m pip install -r requirements.txt
