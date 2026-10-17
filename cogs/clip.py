@@ -134,7 +134,7 @@ class ClipCommands(commands.GroupCog, group_name="clip", description="Find clips
                 results = await search_youtube(query, limit=6)
             except Exception:
                 log.exception("Prefix random search failed")
-                await ctx.send("Search failed. Please try again shortly.")
+                await ctx.send(view=status_view("Search failed", "Please try again shortly."))
                 return
         if not results:
             await ctx.send(view=status_view("No results", "No clips came back this time."))
