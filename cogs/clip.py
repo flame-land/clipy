@@ -17,6 +17,34 @@ def prefix_text():
     return os.getenv("BOT_PREFIX", "!").strip() or "!"
 
 
+def help_message() -> str:
+    p = discord.utils.escape_markdown(prefix_text())
+    return (
+        "**Slash commands**\n"
+        "`/clip search <clip>` — search YouTube\n"
+        "`/clip random` — random anime-scene search\n"
+        "`/clip sources` — supported search/download sources\n"
+        "`/clip help` — show this command list\n"
+        "`/clip ping` — check latency\n"
+        "`/download <link>` — download a supported public video\n\n"
+        "**Prefix commands**\n"
+        f"`{p}clip search <keywords>`\n"
+        f"`{p}clip random`\n"
+        f"`{p}clip sources`\n"
+        f"`{p}download <URL>`\n"
+        f"`{p}help`\n"
+        f"`{p}ping`\n\n"
+        "**Mention commands**\n"
+        "`@Clipy clip search <keywords>`\n"
+        "`@Clipy clip random`\n"
+        "`@Clipy clip sources`\n"
+        "`@Clipy download <URL>`\n"
+        "`@Clipy help`\n"
+        "`@Clipy ping`\n\n"
+        "Replace `@Clipy` with the bot's actual mention."
+    )
+
+
 class ClipCommands(commands.GroupCog, group_name="clip", description="Find clips and videos from supported sources."):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -64,18 +92,12 @@ class ClipCommands(commands.GroupCog, group_name="clip", description="Find clips
 
     @app_commands.command(name="sources", description="Show which search sources Clipy currently supports.")
     async def sources(self, interaction: discord.Interaction):
-        await interaction.response.send_message(view=status_view("Sources", "YouTube search is currently supported. Clipy returns source links and does not download or rehost videos."), ephemeral=True)
+        await interaction.response.send_message(view=status_view("Sources", "Search: YouTube. Downloads: public videos from YouTube, Instagram, Facebook, and TikTok (up to 8 MB). Private or restricted videos may not work."), ephemeral=True)
 
     @app_commands.command(name="help", description="Show Clipy's available commands.")
     async def help_command(self, interaction: discord.Interaction):
         p = discord.utils.escape_markdown(prefix_text())
-        await interaction.response.send_message(
-            view=status_view(
-                "Clipy commands",
-                f"Slash commands\n/clip search — search for a scene\n/clip random — random anime-scene search\n/clip sources — supported sources\n/clip help — command guide\n/download link:<URL> — download a supported public video\n/ping — check latency\n\nPrefix commands\n{p}clip search <keywords>\n{p}clip random\n{p}clip sources\n{p}download <URL>\n{p}help\n{p}ping\nYou can also mention the bot before a prefix command.",
-            ),
-            ephemeral=True,
-        )
+        await interaction.response.send_message(view=status_view("Clipy commands", help_message()), ephemeral=True)
 
     @app_commands.command(name="ping", description="Check Clipy's response latency.")
     async def ping(self, interaction: discord.Interaction):
@@ -84,23 +106,23 @@ class ClipCommands(commands.GroupCog, group_name="clip", description="Find clips
     @commands.group(name="clip", invoke_without_command=True)
     async def prefix_clip(self, ctx: commands.Context):
         p = prefix_text()
-        await ctx.send(f"Try {p}clip search <keywords>, {p}clip random, or {p}clip sources.")
+        await ctx.send(view=status_view("Clip commands", f"Try `{p}clip search <keywords>`, `{p}clip random`, or `{p}clip sources`."))
 
     @prefix_clip.command(name="search")
     async def prefix_search(self, ctx: commands.Context, *, clip: str):
         query = " ".join(clip.split()).strip()
         if len(query) < 2 or len(query) > 180:
-            await ctx.send("Please enter a search query between 2 and 180 characters.")
+            await ctx.send(view=status_view("Invalid query", "Enter a search query between 2 and 180 characters."))
             return
         async with ctx.typing():
             try:
                 results = await search_youtube(query, limit=9)
             except Exception:
                 log.exception("Prefix YouTube search failed for query %r", query)
-                await ctx.send("Search failed. Please try again shortly.")
+                await ctx.send(view=status_view("Search failed", "Please try again shortly."))
                 return
         if not results:
-            await ctx.send(f"No videos matched {discord.utils.escape_markdown(query)}.")
+            await ctx.send(view=status_view("No results", f"No videos matched {discord.utils.escape_markdown(query)}."))
             return
         await ctx.send(view=ClipResultsView(query, results, ctx.author.id))
 
@@ -115,27 +137,21 @@ class ClipCommands(commands.GroupCog, group_name="clip", description="Find clips
                 await ctx.send("Search failed. Please try again shortly.")
                 return
         if not results:
-            await ctx.send("No clips came back this time.")
+            await ctx.send(view=status_view("No results", "No clips came back this time."))
             return
         await ctx.send(view=ClipResultsView(query, results, ctx.author.id))
 
     @prefix_clip.command(name="sources")
     async def prefix_sources(self, ctx: commands.Context):
-        await ctx.send("YouTube search is currently supported. Clipy returns source links and does not download or rehost videos.")
+        await ctx.send(view=status_view("Sources", "Search: YouTube. Downloads: public videos from YouTube, Instagram, Facebook, and TikTok (up to 8 MB). Private or restricted videos may not work."))
 
     @commands.command(name="help")
     async def prefix_help(self, ctx: commands.Context):
-        p = prefix_text()
-        await ctx.send(
-            f"Clipy commands\n{p}clip search <keywords> — search YouTube\n"
-            f"{p}clip random — random anime-scene search\n{p}clip sources — supported sources\n"
-            f"{p}help — command guide\n{p}ping — check latency\n"
-            "You can also mention me before a prefix command."
-        )
+        await ctx.send(view=status_view("Clipy commands", help_message()))
 
     @commands.command(name="ping")
     async def prefix_ping(self, ctx: commands.Context):
-        await ctx.send(f"Pong! Gateway latency: {round(self.bot.latency * 1000)} ms")
+        await ctx.send(view=status_view("Pong", f"Gateway latency: {round(self.bot.latency * 1000)} ms"))
 
 
 async def setup(bot: commands.Bot):
