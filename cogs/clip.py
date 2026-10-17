@@ -72,7 +72,7 @@ class ClipCommands(commands.GroupCog, group_name="clip", description="Find clips
         await interaction.response.send_message(
             view=status_view(
                 "Clipy commands",
-                f"Slash commands\n/clip search — search for a scene\n/clip random — random anime-scene search\n/clip sources — supported sources\n/clip help — command guide\n/ping — check latency\n\nPrefix commands\n{p}clip search <keywords>\n{p}clip random\n{p}clip sources\n{p}help\n{p}ping\nYou can also mention the bot before a prefix command.",
+                f"Slash commands\n/clip search — search for a scene\n/clip random — random anime-scene search\n/clip sources — supported sources\n/clip help — command guide\n/download link:<URL> — download a supported public video\n/ping — check latency\n\nPrefix commands\n{p}clip search <keywords>\n{p}clip random\n{p}clip sources\n{p}download <URL>\n{p}help\n{p}ping\nYou can also mention the bot before a prefix command.",
             ),
             ephemeral=True,
         )
