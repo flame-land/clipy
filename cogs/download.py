@@ -67,17 +67,17 @@ class DownloadCommands(commands.Cog):
     async def send_download(self, url: str, send_file):
         safe_url = validate_url(url)
         if not safe_url:
-            await send_file(error="Unsupported link. Use a public HTTPS video link from YouTube, Instagram, Facebook, or TikTok.")
+            await send_file(error="That link is not supported. Use YouTube, Instagram, Facebook, or TikTok.")
             return
         with tempfile.TemporaryDirectory(prefix="clipy_") as folder:
             try:
                 path = await asyncio.wait_for(asyncio.to_thread(download_sync, safe_url, folder), timeout=90)
                 await send_file(path=path)
             except asyncio.TimeoutError:
-                await send_file(error="Download timed out. Try a shorter or different public video.")
+                await send_file(error="That took too long. Try another video.")
             except Exception as exc:
                 log.info("Download failed (%s): %s", urlparse(safe_url).hostname, type(exc).__name__)
-                await send_file(error="Couldn't download this video. It may be private, restricted, unsupported, or too large. Try another public link.")
+                await send_file(error="Could not get that video. It may be private, unavailable, or over 8 MB.")
 
     @app_commands.command(name="download", description="Download a public video from a supported platform.")
     @app_commands.describe(link="Public video URL from YouTube, Instagram, Facebook, or TikTok.")
@@ -89,7 +89,7 @@ class DownloadCommands(commands.Cog):
             if error:
                 await interaction.followup.send(view=status_view("Download failed", error), ephemeral=True)
             else:
-                await interaction.followup.send(file=discord.File(path, filename=path.name), view=status_view("Download ready", "The video is attached to this message."), ephemeral=True)
+                await interaction.followup.send(file=discord.File(path, filename=path.name), view=status_view("Here you go", "Video attached."), ephemeral=True)
 
         await self.send_download(link, respond)
 
