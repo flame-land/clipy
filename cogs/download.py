@@ -13,6 +13,8 @@ from discord import app_commands
 from discord.ext import commands
 from yt_dlp import YoutubeDL
 
+from utils.components import status_view
+
 log = logging.getLogger(__name__)
 MAX_BYTES = 8 * 1024 * 1024
 ALLOWED_HOSTS = {
@@ -85,9 +87,9 @@ class DownloadCommands(commands.Cog):
 
         async def respond(*, path: Path | None = None, error: str | None = None):
             if error:
-                await interaction.followup.send(error, ephemeral=True)
+                await interaction.followup.send(view=status_view("Download failed", error), ephemeral=True)
             else:
-                await interaction.followup.send(file=discord.File(path, filename=path.name), ephemeral=True)
+                await interaction.followup.send(file=discord.File(path, filename=path.name), view=status_view("Download ready", "The video is attached to this message."), ephemeral=True)
 
         await self.send_download(link, respond)
 
@@ -96,9 +98,9 @@ class DownloadCommands(commands.Cog):
     async def prefix_download(self, ctx: commands.Context, *, link: str):
         async def respond(*, path: Path | None = None, error: str | None = None):
             if error:
-                await ctx.reply(error, mention_author=False)
+                await ctx.reply(view=status_view("Download failed", error), mention_author=False)
             else:
-                await ctx.reply(file=discord.File(path, filename=path.name), mention_author=False)
+                await ctx.reply(file=discord.File(path, filename=path.name), view=status_view("Download ready", "The video is attached to this message."), mention_author=False)
 
         await self.send_download(link, respond)
 
