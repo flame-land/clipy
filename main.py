@@ -1,5 +1,6 @@
 """Clipy Discord bot entry point."""
 from __future__ import annotations
+import asyncio
 import logging
 import os
 import discord
@@ -21,6 +22,35 @@ def configured_intents():
     return intents
 
 
+def configured_activity_messages():
+    """Read activity messages separated by |, falling back to the single activity name."""
+    raw = os.getenv("BOT_ACTIVITY_MESSAGES", "").strip()
+    messages = [item.strip() for item in raw.split("|") if item.strip()]
+    if not messages:
+        fallback = os.getenv("BOT_ACTIVITY_NAME", "/clip search").strip()
+        messages = [fallback] if fallback else []
+    return messages
+
+
+def make_activity(activity_type, activity_name):
+    if not activity_name:
+        return None
+    if activity_type == "playing":
+        return discord.Game(name=activity_name)
+    if activity_type == "streaming":
+        stream_url = os.getenv("BOT_STREAM_URL", "").strip()
+        if stream_url.startswith(("https://twitch.tv/", "https://www.twitch.tv/", "https://youtube.com/", "https://www.youtube.com/")):
+            return discord.Streaming(name=activity_name, url=stream_url)
+        log.warning("Streaming activity requires a Twitch or YouTube BOT_STREAM_URL; using watching instead.")
+        return discord.Activity(type=discord.ActivityType.watching, name=activity_name)
+    activity_types = {
+        "listening": discord.ActivityType.listening,
+        "watching": discord.ActivityType.watching,
+        "competing": discord.ActivityType.competing,
+    }
+    return discord.Activity(type=activity_types.get(activity_type, discord.ActivityType.listening), name=activity_name)
+
+
 class ClipyBot(commands.Bot):
     def __init__(self):
         super().__init__(
@@ -28,6 +58,7 @@ class ClipyBot(commands.Bot):
             intents=configured_intents(),
             help_command=None,
         )
+        self._presence_task = None
 
     async def setup_hook(self):
         await self.load_extension("cogs.clip")
@@ -50,28 +81,27 @@ class ClipyBot(commands.Bot):
             "invisible": discord.Status.invisible,
         }
         status = statuses.get(status_name, discord.Status.online)
-        activity_type = os.getenv("BOT_ACTIVITY_TYPE", "listening").strip().lower()
-        activity_name = os.getenv("BOT_ACTIVITY_NAME", "/clip search").strip()
-        activity = None
-        if activity_name:
-            if activity_type == "playing":
-                activity = discord.Game(name=activity_name)
-            elif activity_type == "streaming":
-                stream_url = os.getenv("BOT_STREAM_URL", "").strip()
-                if stream_url.startswith(("https://twitch.tv/", "https://www.twitch.tv/", "https://youtube.com/", "https://www.youtube.com/")):
-                    activity = discord.Streaming(name=activity_name, url=stream_url)
-                else:
-                    log.warning("Streaming activity requires a Twitch or YouTube BOT_STREAM_URL; using watching instead.")
-                    activity = discord.Activity(type=discord.ActivityType.watching, name=activity_name)
-            else:
-                activity_types = {
-                    "listening": discord.ActivityType.listening,
-                    "watching": discord.ActivityType.watching,
-                    "competing": discord.ActivityType.competing,
-                }
-                activity = discord.Activity(type=activity_types.get(activity_type, discord.ActivityType.listening), name=activity_name)
-        await self.change_presence(status=status, activity=activity)
+        self._presence_status = status
+        if self._presence_task is None or self._presence_task.done():
+            self._presence_task = asyncio.create_task(self.rotate_presence())
         log.info("Logged in as %s", self.user)
+
+    async def rotate_presence(self):
+        messages = configured_activity_messages()
+        if not messages:
+            await self.change_presence(status=self._presence_status, activity=None)
+            return
+        try:
+            interval = max(15, int(os.getenv("BOT_ACTIVITY_INTERVAL", "30")))
+        except ValueError:
+            interval = 30
+        activity_type = os.getenv("BOT_ACTIVITY_TYPE", "listening").strip().lower()
+        index = 0
+        while not self.is_closed():
+            activity = make_activity(activity_type, messages[index % len(messages)])
+            await self.change_presence(status=self._presence_status, activity=activity)
+            index += 1
+            await asyncio.sleep(interval)
 
 
 def main():
