@@ -50,11 +50,20 @@ Set DISCORD_TOKEN in your local .env. Enable Message Content Intent in the Disco
 
 ## Configuration
 
-- BOT_PREFIX: prefix for text commands; default !.
-- DEV_GUILD_ID: optional test server ID for faster slash-command syncing.
-- BOT_STATUS: online, idle, dnd, or invisible.
-- BOT_ACTIVITY_TYPE: playing, listening, watching, competing, or streaming.
-- BOT_ACTIVITY_NAME: text shown in the activity.
-- BOT_STREAM_URL: Twitch or YouTube URL, required for streaming activity.
+- `BOT_PREFIX`: prefix for text commands; default `!`.
+- `DEV_GUILD_ID`: optional test server ID for faster slash-command syncing.
+- `BOT_STATUS`: online, idle, dnd, or invisible.
+- `BOT_ACTIVITY_TYPE`: playing, listening, watching, competing, or streaming.
+- `BOT_ACTIVITY_MESSAGES`: activity texts rotated in order, separated by `|` (for example `/clip search|anime clips|!help`).
+- `BOT_ACTIVITY_INTERVAL`: seconds between activity messages; minimum 15, default 30.
+- `BOT_ACTIVITY_NAME`: fallback activity text if `BOT_ACTIVITY_MESSAGES` is empty.
+- `BOT_STREAM_URL`: Twitch or YouTube URL, required for streaming activity.
 
-Discord bots cannot set a mobile client status. Change the bot's global username, avatar, and About Me/profile details in the Discord Developer Portal; these are not changed by this configuration file.
+Example local `.env` configuration:
+
+    BOT_STATUS=online
+    BOT_ACTIVITY_TYPE=listening
+    BOT_ACTIVITY_MESSAGES=/clip search|anime clips|!help
+    BOT_ACTIVITY_INTERVAL=30
+
+Discord bots cannot set a mobile client status. This rotates the bot's standard Discord activity; it does not create Discord Rich Presence buttons or custom assets. Change the bot's global username, avatar, and About Me/profile details in the Discord Developer Portal; these are not changed by this configuration file.
