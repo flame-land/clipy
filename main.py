@@ -1,0 +1,1 @@
+print('Clipy is starting')
