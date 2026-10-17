@@ -49,7 +49,7 @@ class ClipCommands(commands.GroupCog, group_name="clip", description="Find clips
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @app_commands.command(name="search", description="Search YouTube for a clip, scene, or video.")
+    @app_commands.command(name="search", description="Search YouTube for a clip or scene.")
     @app_commands.describe(clip="What scene or clip should Clipy find?")
     @app_commands.checks.cooldown(1, 8.0)
     async def search(self, interaction: discord.Interaction, clip: str):
@@ -75,7 +75,7 @@ class ClipCommands(commands.GroupCog, group_name="clip", description="Find clips
             return
         await interaction.followup.send(view=ClipResultsView(query, results, interaction.user.id))
 
-    @app_commands.command(name="random", description="Search a random anime scene query.")
+    @app_commands.command(name="random", description="Search for a random anime scene.")
     async def random_clip(self, interaction: discord.Interaction):
         query = random.choice(["Dragon Ball iconic scene", "anime fight scene", "Goku Black scene", "Jujutsu Kaisen fight scene", "Naruto iconic scene", "One Piece fight scene"])
         await interaction.response.defer(thinking=True)
@@ -90,13 +90,12 @@ class ClipCommands(commands.GroupCog, group_name="clip", description="Find clips
             return
         await interaction.followup.send(view=ClipResultsView(query, results, interaction.user.id))
 
-    @app_commands.command(name="sources", description="Show which search sources Clipy currently supports.")
+    @app_commands.command(name="sources", description="Show supported sources.")
     async def sources(self, interaction: discord.Interaction):
-        await interaction.response.send_message(view=status_view("Sources", "Search: YouTube\\nDownload: YouTube, Instagram, Facebook, TikTok\\nDownloads must be public and under 8 MB."), ephemeral=True)
+        await interaction.response.send_message(view=status_view("Sources", "Search: YouTube\\nDownload: YouTube, Instagram, Facebook, TikTok\\nOnly public links are supported."), ephemeral=True)
 
     @app_commands.command(name="help", description="Show Clipy's available commands.")
     async def help_command(self, interaction: discord.Interaction):
-        p = discord.utils.escape_markdown(prefix_text())
         await interaction.response.send_message(view=status_view("Commands", help_message()), ephemeral=True)
 
     @app_commands.command(name="ping", description="Check Clipy's response latency.")
