@@ -15,7 +15,6 @@ class ClipyBot(commands.Bot):
 
     async def setup_hook(self):
         await self.load_extension("cogs.clip")
-        await self.load_extension("cogs.errors")
         guild_id = os.getenv("DEV_GUILD_ID", "").strip()
         if guild_id.isdigit():
             guild = discord.Object(id=int(guild_id))
