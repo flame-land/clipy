@@ -9,7 +9,7 @@ Slash commands:
 - /clip random — search a random anime-scene query.
 - /clip sources — show supported sources.
 - /clip help — command guide.
-- /download link:<URL> — choose video quality or audio format.
+- /download link:<URL> — choose download type, quality, and format.
 - /clip ping — check latency.
 
 Prefix commands (default prefix is !):
@@ -24,11 +24,14 @@ Mention commands also work, for example: @Clipy download https://...
 
 ## Downloads
 
-After running `/download` or `!download`, use the buttons to choose:
-- Video: best available, 1080p, 720p, 480p, or 360p.
-- Audio: MP3 or M4A.
+After running `/download` or `!download`, use the interactive menus to choose the type, quality, and format.
 
-The maximum file size follows the current Discord server's upload limit (with a small safety margin); downloads in DMs use a conservative fallback. A lower quality is more likely to fit. Large downloads can take longer, and audio conversion requires FFmpeg installed on the machine running Clipy.
+- Video quality: best available, 1080p, 720p, 480p, or 360p.
+- Video format: MP4 or WebM.
+- Audio format: MP3 or M4A.
+- Audio quality: 128, 192, or 320 kbps.
+
+Clipy allows larger downloads than the previous 25 MB fallback and gives the download more time to finish. The actual file still has to fit Discord's upload limit; the bot uses the server's reported limit when available and a 100 MB fallback in DMs. If a file won't fit, choose a lower quality or shorter clip. Large files can take longer, and audio conversion requires FFmpeg installed on the machine running Clipy.
 
 Supported links: public YouTube, Instagram, Facebook/fb.watch, and TikTok URLs that can be downloaded without logging in. Private, restricted, unavailable, or unsupported content may fail. Files are temporary and are deleted after sending. Use this only for content you have permission to download; Clipy does not bypass access controls or DRM.
 
