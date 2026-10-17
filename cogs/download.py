@@ -43,12 +43,24 @@ AUDIO_FORMATS = {"mp3": "MP3", "m4a": "M4A"}
 
 
 def validate_url(url: str) -> str | None:
-    parsed = urlparse(url.strip())
-    if parsed.scheme != "https" or not parsed.hostname:
+    """Accept only HTTPS links on the explicit allowlist; reject credentials and custom ports."""
+    candidate = url.strip()
+    try:
+        parsed = urlparse(candidate)
+        host = (parsed.hostname or "").lower().rstrip(".")
+        # Avoid userinfo tricks, custom ports, non-HTTPS URLs, and unapproved hosts.
+        if parsed.scheme.lower() != "https" or not host:
+            return None
+        if parsed.username is not None or parsed.password is not None:
+            return None
+        if parsed.port not in (None, 443):
+            return None
+        if host not in ALLOWED_HOSTS:
+            return None
+        return candidate
+    except ValueError:
+        # urlparse can raise for malformed bracketed hosts or ports.
         return None
-    if parsed.hostname.lower().rstrip(".") not in ALLOWED_HOSTS:
-        return None
-    return url.strip()
 
 
 def download_sync(
