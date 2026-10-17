@@ -1,4 +1,4 @@
-"""Discord Components V2 layouts. Clipy does not use embeds."""
+"""Discord Components V2 layouts."""
 from __future__ import annotations
 import discord
 from services.search import ClipResult
@@ -21,10 +21,10 @@ class ClipResultsView(discord.ui.LayoutView):
     def render(self):
         self.clear_items()
         box = discord.ui.Container(
-            discord.ui.TextDisplay("## ◈ CLIPY  /  SCAN COMPLETE"),
+            discord.ui.TextDisplay("## Search results"),
             discord.ui.Separator(),
             discord.ui.TextDisplay(f"**Query:** {discord.utils.escape_markdown(self.query)}"),
-            discord.ui.TextDisplay(f"Found **{len(self.results)}** result(s). These are source/watch links, not guaranteed direct-download links."),
+            discord.ui.TextDisplay(f"Found {len(self.results)} result(s). Links open the original video pages."),
             accent_colour=CYAN,
         )
         start = self.page * 3
@@ -32,7 +32,7 @@ class ClipResultsView(discord.ui.LayoutView):
             title = discord.utils.escape_markdown(result.title[:160])
             channel = discord.utils.escape_markdown(result.channel[:70])
             box.add_item(discord.ui.Separator())
-            box.add_item(discord.ui.TextDisplay(f"**{i}. [{title}]({result.url})**\n`{result.source}` · {channel} · {duration_text(result.duration)}"))
+            box.add_item(discord.ui.TextDisplay(f"**{i}. [{title}]({result.url})**\n{result.source} · {channel} · {duration_text(result.duration)}"))
         pages = max(1, (len(self.results) + 2) // 3)
         if pages > 1:
             row = discord.ui.ActionRow()
@@ -64,7 +64,7 @@ class ClipResultsView(discord.ui.LayoutView):
 def status_view(title: str, message: str, *, ephemeral_colour: bool = False) -> discord.ui.LayoutView:
     view = discord.ui.LayoutView(timeout=120)
     view.add_item(discord.ui.Container(
-        discord.ui.TextDisplay(f"## ◈ CLIPY  /  {title.upper()}"),
+        discord.ui.TextDisplay(f"## {title}"),
         discord.ui.Separator(),
         discord.ui.TextDisplay(message),
         accent_colour=CYAN if not ephemeral_colour else discord.Colour.orange(),
