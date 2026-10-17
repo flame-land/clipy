@@ -1,60 +1,51 @@
-# ◈ Clipy
+# Clipy
 
-Clipy is a Discord clip-finder bot built with Python, discord.py, and Discord Components V2. It searches YouTube for scenes and videos and displays interactive, paginated results.
+Clipy is a Discord clip-finder bot that searches YouTube and can send supported public videos as attachments.
 
-## Current features
+## Commands
 
-- /clip search clip:<keywords> — search YouTube for a scene or video.
+Slash commands:
+- /clip search — search for a scene or video.
 - /clip random — search a random anime-scene query.
-- /clip sources — show supported search sources.
+- /clip sources — show supported sources.
 - /clip help — command guide.
-- /ping — check bot latency.
-- Components V2 interface; no embeds.
-- Query validation, timeout handling, and useful error messages.
+- /download link:<URL> — download a public video.
+- /ping — check latency.
 
-Important: this version returns source/watch links, not guaranteed direct download links. It searches metadata only and does not download or rehost videos. YouTube is currently the only integrated search source.
+Prefix commands (default prefix is !):
+- !clip search goku black
+- !clip random
+- !clip sources
+- !download https://...
+- !help
+- !ping
 
-## Requirements
+Mention commands also work, for example: @Clipy download https://...
 
-- Python 3.10 or newer (Python 3.11+ recommended).
-- A Discord application and bot token.
+## Download support
 
-## Setup
+Allowed hosts: YouTube, Instagram, Facebook/fb.watch, and TikTok. The link must be public and downloadable without login. Each download is limited to 8 MB to fit typical Discord upload limits. Private, restricted, unsupported, or larger videos may fail. Downloads are temporary and are deleted after being sent. Use this only for content you have permission to download; Clipy does not bypass access controls or DRM.
 
-1. Clone this repository: https://github.com/flame-land/clipy
-2. Install dependencies with: python -m pip install -r requirements.txt
-3. Copy .env.example to .env.
-4. Put your Discord bot token in .env as DISCORD_TOKEN=your_token_here.
-5. Optional: set DEV_GUILD_ID to your test server ID for faster command sync during development.
-6. Start the bot with: python main.py
+## Setup in Termux
 
-Never commit your real .env file or share your bot token. If a token is exposed, reset it in the Discord Developer Portal immediately.
+    pkg update
+    pkg install git python -y
+    git clone https://github.com/flame-land/clipy.git
+    cd clipy
+    python -m pip install -r requirements.txt
+    cp .env.example .env
+    nano .env
+    python main.py
 
-## Invite the bot
+Set DISCORD_TOKEN in your local .env. Enable Message Content Intent in the Discord Developer Portal for prefix and mention commands. Never commit or share your real token.
 
-In the Discord Developer Portal, open OAuth2 → URL Generator and select the bot and applications.commands scopes. Invite it to your server. Administrator permission is not required.
+## Configuration
 
-## Project structure
+- BOT_PREFIX: prefix for text commands; default !.
+- DEV_GUILD_ID: optional test server ID for faster slash-command syncing.
+- BOT_STATUS: online, idle, dnd, or invisible.
+- BOT_ACTIVITY_TYPE: playing, listening, watching, competing, or streaming.
+- BOT_ACTIVITY_NAME: text shown in the activity.
+- BOT_STREAM_URL: Twitch or YouTube URL, required for streaming activity.
 
-- main.py — bot startup and slash-command sync
-- cogs/clip.py — slash commands
-- services/search.py — YouTube search adapter
-- utils/components.py — Components V2 layouts
-- requirements.txt — Python dependencies
-- .env.example — safe configuration template
-
-## Roadmap
-
-- Add more supported search providers.
-- Deduplicate and rank results across providers.
-- Add provider-approved direct-download support where available.
-- Add tests and CI checks.
-- Add opt-in saved clips and search history.
-
-## Responsible use
-
-Respect each platform's terms, copyright rules, and content-owner permissions. Clipy currently links to source pages and does not download or rehost media.
-
-## License
-
-No license has been selected. Standard copyright applies until a license is added; do not assume the code is licensed for reuse.
+Discord bots cannot set a mobile client status. Change the bot's global username, avatar, and About Me/profile details in the Discord Developer Portal; these are not changed by this configuration file.
