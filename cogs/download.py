@@ -15,23 +15,31 @@ from yt_dlp import YoutubeDL
 from utils.components import ACCENT, status_view
 
 log = logging.getLogger(__name__)
-DEFAULT_MAX_BYTES = 25 * 1024 * 1024
-DOWNLOAD_TIMEOUT = 180
+# Discord's DM attachment cap isn't exposed as consistently as a guild's cap.
+# Keep a generous fallback, then enforce the known Discord cap when available.
+DEFAULT_MAX_BYTES = 100 * 1024 * 1024
+DOWNLOAD_TIMEOUT = 600
 ALLOWED_HOSTS = {
     "youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be",
     "instagram.com", "www.instagram.com",
     "facebook.com", "www.facebook.com", "m.facebook.com", "fb.watch",
     "tiktok.com", "www.tiktok.com", "m.tiktok.com", "vm.tiktok.com", "vt.tiktok.com",
 }
-OPTIONS = {
-    "video_best": ("Video · Best", "video", "bestvideo+bestaudio/best", None),
-    "video_1080": ("Video · 1080p", "video", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best", None),
-    "video_720": ("Video · 720p", "video", "bestvideo[height<=720]+bestaudio/best[height<=720]/best", None),
-    "video_480": ("Video · 480p", "video", "bestvideo[height<=480]+bestaudio/best[height<=480]/best", None),
-    "video_360": ("Video · 360p", "video", "bestvideo[height<=360]+bestaudio/best[height<=360]/best", None),
-    "audio_mp3": ("Audio · MP3", "audio", "bestaudio/best", "mp3"),
-    "audio_m4a": ("Audio · M4A", "audio", "bestaudio[ext=m4a]/bestaudio/best", "m4a"),
+
+VIDEO_QUALITIES = {
+    "best": ("Best available", None),
+    "1080": ("1080p", 1080),
+    "720": ("720p", 720),
+    "480": ("480p", 480),
+    "360": ("360p", 360),
 }
+AUDIO_QUALITIES = {
+    "128": "128 kbps",
+    "192": "192 kbps",
+    "320": "320 kbps",
+}
+VIDEO_FORMATS = {"mp4": "MP4", "webm": "WebM"}
+AUDIO_FORMATS = {"mp3": "MP3", "m4a": "M4A"}
 
 
 def validate_url(url: str) -> str | None:
@@ -43,31 +51,64 @@ def validate_url(url: str) -> str | None:
     return url.strip()
 
 
-def download_sync(url: str, folder: str, option_key: str, max_bytes: int) -> Path:
-    _, kind, format_selector, audio_codec = OPTIONS[option_key]
+def download_sync(
+    url: str,
+    folder: str,
+    mode: str,
+    quality: str,
+    file_format: str,
+    max_bytes: int,
+) -> Path:
     output = str(Path(folder) / "clip.%(ext)s")
     opts = {
         "outtmpl": output,
-        "format": format_selector,
         "max_filesize": max_bytes,
         "noplaylist": True,
         "quiet": True,
         "no_warnings": True,
-        "socket_timeout": 20,
-        "retries": 2,
+        "socket_timeout": 30,
+        "retries": 3,
         "overwrites": True,
-        "merge_output_format": "mp4",
     }
-    if audio_codec:
-        opts["postprocessors"] = [{
-            "key": "FFmpegExtractAudio",
-            "preferredcodec": audio_codec,
-            "preferredquality": "192",
-        }]
+
+    if mode == "video":
+        height = VIDEO_QUALITIES[quality][1]
+        cap = f"[height<={height}]" if height else ""
+        if file_format == "mp4":
+            opts["format"] = (
+                f"bestvideo[ext=mp4]{cap}+bestaudio[ext=m4a]/"
+                f"best[ext=mp4]{cap}/best{cap}/best"
+            )
+        else:
+            opts["format"] = (
+                f"bestvideo[ext=webm]{cap}+bestaudio[ext=webm]/"
+                f"best[ext=webm]{cap}/best{cap}/best"
+            )
+        opts["merge_output_format"] = file_format
+    else:
+        opts["format"] = "bestaudio/best"
+        if file_format == "mp3":
+            opts["postprocessors"] = [{
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": quality,
+            }]
+        else:
+            # M4A is copied when the source is already compatible.
+            opts["format"] = "bestaudio[ext=m4a]/bestaudio/best"
+            opts["postprocessors"] = [{
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "m4a",
+                "preferredquality": quality,
+            }]
+
     with YoutubeDL(opts) as ydl:
         ydl.download([url])
 
-    files = [p for p in Path(folder).iterdir() if p.is_file() and not p.name.endswith(".part")]
+    files = [
+        p for p in Path(folder).iterdir()
+        if p.is_file() and not p.name.endswith((".part", ".ytdl"))
+    ]
     if not files:
         raise RuntimeError("No file was produced.")
     file_path = max(files, key=lambda p: p.stat().st_size)
@@ -79,66 +120,168 @@ def download_sync(url: str, folder: str, option_key: str, max_bytes: int) -> Pat
 
 class DownloadOptionsView(discord.ui.LayoutView):
     def __init__(self, url: str, requester_id: int, max_bytes: int, *, ephemeral: bool):
-        super().__init__(timeout=180)
+        super().__init__(timeout=300)
         self.url = url
         self.requester_id = requester_id
         self.max_bytes = max_bytes
         self.ephemeral = ephemeral
+        self.mode = "video"
+        self.video_quality = "720"
+        self.video_format = "mp4"
+        self.audio_quality = "192"
+        self.audio_format = "mp3"
+        self.render()
+
+    def render(self):
+        self.clear_items()
+        mode_options = [
+            discord.SelectOption(label="Video", value="video", default=self.mode == "video"),
+            discord.SelectOption(label="Audio", value="audio", default=self.mode == "audio"),
+        ]
+        mode_select = discord.ui.Select(
+            placeholder="What do you want to download?",
+            options=mode_options,
+            min_values=1,
+            max_values=1,
+        )
+
+        async def choose_mode(interaction: discord.Interaction):
+            if not await self.check_requester(interaction):
+                return
+            self.mode = mode_select.values[0]
+            self.render()
+            await interaction.response.edit_message(view=self)
+
+        mode_select.callback = choose_mode
+
+        if self.mode == "video":
+            quality_options = [
+                discord.SelectOption(label=label, value=value, default=value == self.video_quality)
+                for value, (label, _) in VIDEO_QUALITIES.items()
+            ]
+            format_options = [
+                discord.SelectOption(label=label, value=value, default=value == self.video_format)
+                for value, label in VIDEO_FORMATS.items()
+            ]
+            quality_placeholder = "Video quality"
+            format_placeholder = "Video format"
+        else:
+            quality_options = [
+                discord.SelectOption(label=label, value=value, default=value == self.audio_quality)
+                for value, label in AUDIO_QUALITIES.items()
+            ]
+            format_options = [
+                discord.SelectOption(label=label, value=value, default=value == self.audio_format)
+                for value, label in AUDIO_FORMATS.items()
+            ]
+            quality_placeholder = "Audio quality"
+            format_placeholder = "Audio format"
+
+        quality_select = discord.ui.Select(
+            placeholder=quality_placeholder,
+            options=quality_options,
+            min_values=1,
+            max_values=1,
+        )
+        format_select = discord.ui.Select(
+            placeholder=format_placeholder,
+            options=format_options,
+            min_values=1,
+            max_values=1,
+        )
+
+        async def choose_quality(interaction: discord.Interaction):
+            if not await self.check_requester(interaction):
+                return
+            if self.mode == "video":
+                self.video_quality = quality_select.values[0]
+            else:
+                self.audio_quality = quality_select.values[0]
+            self.render()
+            await interaction.response.edit_message(view=self)
+
+        async def choose_format(interaction: discord.Interaction):
+            if not await self.check_requester(interaction):
+                return
+            if self.mode == "video":
+                self.video_format = format_select.values[0]
+            else:
+                self.audio_format = format_select.values[0]
+            self.render()
+            await interaction.response.edit_message(view=self)
+
+        quality_select.callback = choose_quality
+        format_select.callback = choose_format
+
+        async def download_button(interaction: discord.Interaction):
+            if self.mode == "video":
+                await self.start_download(interaction, "video", self.video_quality, self.video_format)
+            else:
+                await self.start_download(interaction, "audio", self.audio_quality, self.audio_format)
+
+        button = discord.ui.Button(label="Download", style=discord.ButtonStyle.primary)
+        button.callback = download_button
+
         box = discord.ui.Container(
-            discord.ui.TextDisplay("## Download options"),
+            discord.ui.TextDisplay("## Download"),
             discord.ui.Separator(),
             discord.ui.TextDisplay(
-                "Pick a video quality or an audio format. Higher quality usually means a larger file."
+                "Choose a type, quality, and format. Bigger files may need a lower quality to fit Discord."
             ),
+            discord.ui.ActionRow(mode_select),
+            discord.ui.ActionRow(quality_select),
+            discord.ui.ActionRow(format_select),
+            discord.ui.ActionRow(button),
             accent_colour=ACCENT,
         )
-        video_row = discord.ui.ActionRow()
-        for key in ("video_best", "video_1080", "video_720", "video_480", "video_360"):
-            label = OPTIONS[key][0]
-            button = discord.ui.Button(label=label, style=discord.ButtonStyle.secondary)
-            async def callback(interaction: discord.Interaction, option=key):
-                await self.start_download(interaction, option)
-            button.callback = callback
-            video_row.add_item(button)
-        audio_row = discord.ui.ActionRow()
-        for key in ("audio_mp3", "audio_m4a"):
-            button = discord.ui.Button(label=OPTIONS[key][0], style=discord.ButtonStyle.primary)
-            async def callback(interaction: discord.Interaction, option=key):
-                await self.start_download(interaction, option)
-            button.callback = callback
-            audio_row.add_item(button)
-        box.add_item(video_row)
-        box.add_item(audio_row)
         self.add_item(box)
 
-    async def start_download(self, interaction: discord.Interaction, option_key: str):
+    async def check_requester(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.requester_id:
             await interaction.response.send_message(
                 "Run the command yourself to use these options.", ephemeral=True
             )
+            return False
+        return True
+
+    async def start_download(
+        self,
+        interaction: discord.Interaction,
+        mode: str,
+        quality: str,
+        file_format: str,
+    ):
+        if not await self.check_requester(interaction):
             return
         await interaction.response.defer(ephemeral=self.ephemeral, thinking=True)
-        label = OPTIONS[option_key][0]
+        if mode == "video":
+            label = f"Video · {VIDEO_QUALITIES[quality][0]} · {VIDEO_FORMATS[file_format]}"
+        else:
+            label = f"Audio · {AUDIO_FORMATS[file_format]} · {AUDIO_QUALITIES[quality]}"
         try:
             with tempfile.TemporaryDirectory(prefix="clipy_") as folder:
                 path = await asyncio.wait_for(
-                    asyncio.to_thread(download_sync, self.url, folder, option_key, self.max_bytes),
+                    asyncio.to_thread(
+                        download_sync, self.url, folder, mode, quality, file_format, self.max_bytes
+                    ),
                     timeout=DOWNLOAD_TIMEOUT,
                 )
+                size_mb = path.stat().st_size / (1024 * 1024)
                 await interaction.followup.send(
-                    content=f"{label} · {path.stat().st_size / (1024 * 1024):.1f} MB",
+                    content=f"{label} · {size_mb:.1f} MB",
                     file=discord.File(path, filename=path.name),
                     ephemeral=self.ephemeral,
                 )
         except asyncio.TimeoutError:
             await interaction.followup.send(
-                "That download took too long. Try a lower quality.", ephemeral=self.ephemeral
+                "That took too long. Try a lower quality or a shorter clip.",
+                ephemeral=self.ephemeral,
             )
         except Exception as exc:
             log.info("Download failed (%s): %s", urlparse(self.url).hostname, type(exc).__name__)
             await interaction.followup.send(
-                "Couldn't make that file. The video may be private, unavailable, or too large. "
-                "Try a lower quality, or check that FFmpeg is installed for audio conversion.",
+                "Couldn't make that file. It may be unavailable, too large for Discord, or need FFmpeg. "
+                "Try a lower quality or another format.",
                 ephemeral=self.ephemeral,
             )
 
@@ -149,21 +292,11 @@ class DownloadCommands(commands.Cog):
 
     @staticmethod
     def upload_limit(guild: discord.Guild | None) -> int:
-        # Discord reports the current guild's upload cap. Use a conservative fallback in DMs.
-        return max(1, (getattr(guild, "filesize_limit", DEFAULT_MAX_BYTES) or DEFAULT_MAX_BYTES) - 512 * 1024)
+        # Respect the server's real attachment limit when Discord exposes it.
+        limit = getattr(guild, "filesize_limit", None) if guild else None
+        return max(1, (limit or DEFAULT_MAX_BYTES) - 512 * 1024)
 
-    async def show_options(self, url: str, requester_id: int, guild: discord.Guild | None, send_view):
-        safe_url = validate_url(url)
-        if not safe_url:
-            await send_view(error=True)
-            return
-        view = DownloadOptionsView(
-            safe_url, requester_id, self.upload_limit(guild),
-            ephemeral=guild is None,
-        )
-        await send_view(view=view)
-
-    @app_commands.command(name="download", description="Choose a video quality or audio format.")
+    @app_commands.command(name="download", description="Choose download type, quality, and format.")
     @app_commands.describe(link="Public video URL from YouTube, Instagram, Facebook, or TikTok.")
     @app_commands.checks.cooldown(1, 20.0)
     async def slash_download(self, interaction: discord.Interaction, link: str):
