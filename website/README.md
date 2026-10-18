@@ -49,6 +49,17 @@ gunicorn --chdir website --bind 0.0.0.0:${PORT:-8080} app:app
 
 Use a host with persistent writable disk for `CLIPY_WEB_DATA`; otherwise generated files and login sessions can disappear when the service restarts. Do not use Flask's development server for public production traffic.
 
+## Dashboard settings
+
+Each server dashboard has its own saved download settings:
+
+- Output format: best available/original, MP4 video, or MP3 audio only.
+- Maximum video duration: 1–60 minutes, bounded by `MAX_DOWNLOAD_SECONDS`.
+- Maximum file size: 50–2048 MB, bounded by `MAX_DOWNLOAD_BYTES`.
+- Generated link expiry: 1 hour to 7 days.
+
+These settings are stored in the website SQLite database and apply to downloads initiated for that server. Hosting-wide caps always win. MP4/MP3 conversion requires FFmpeg, supplied through `imageio-ffmpeg`; some sources may not offer a compatible format.
+
 ## Generated file links
 
 Links use random, unguessable tokens and expire after the configured TTL. Files are stored on the web host, not sent through Discord. The default processing limits are 2 GiB and one hour; adjust only to limits your host can safely support. You are responsible for complying with source-site terms, copyright rules, and having permission to download the content. Private/restricted content may fail. A host's available disk, memory, CPU, bandwidth, and platform restrictions remain real limits.
