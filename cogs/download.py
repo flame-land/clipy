@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import discord
+import imageio_ffmpeg
 from discord import app_commands
 from discord.ext import commands
 from yt_dlp import YoutubeDL
@@ -97,6 +98,8 @@ def download_sync(
         "socket_timeout": 20,
         "retries": 2,
         "overwrites": True,
+        # Use the pip-bundled FFmpeg executable when available on the host.
+        "ffmpeg_location": imageio_ffmpeg.get_ffmpeg_exe(),
         # Download/process only the first 60 seconds; requires FFmpeg.
         "download_ranges": download_range_func(None, [(0, MAX_CLIP_SECONDS)]),
         "force_keyframes_at_cuts": True,
@@ -349,7 +352,7 @@ class DownloadCommands(commands.Cog):
         safe_url = validate_url(link)
         if not safe_url:
             await ctx.reply(
-                view=status_view("Unsupported link", "Use a public YouTube, Instagram, Facebook, or TikTok link."),
+                view=status_view("Unsupported link", "Use a public clip link from a supported video platform."),
                 mention_author=False,
             )
             return
