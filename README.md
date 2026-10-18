@@ -1,6 +1,6 @@
 # Clipy
 
-Clipy is a Discord clip-finder bot that searches YouTube and can send supported public videos or audio as attachments.
+Clipy is a Discord clip-finder bot that searches YouTube for clips up to 60 seconds, shows thumbnail previews, and can send the first 60 seconds of supported public video links as attachments.
 
 ## Commands
 
@@ -26,6 +26,7 @@ Mention commands also work, for example: @Clipy download https://...
 
 After running `/download` or `!download`, use the interactive menus to choose the type, quality, and format.
 
+- Only the first 60 seconds are downloaded, even when the source video is longer.
 - Video quality: best available, 1080p, 720p, 480p, or 360p.
 - Video format: MP4 or WebM.
 - Audio format: MP3 or M4A.
@@ -33,7 +34,7 @@ After running `/download` or `!download`, use the interactive menus to choose th
 
 Clipy allows larger downloads than the previous 25 MB fallback and gives the download more time to finish. The actual file still has to fit Discord's upload limit; the bot uses the server's reported limit when available and a 100 MB fallback in DMs. If a file won't fit, choose a lower quality or shorter clip. Large files can take longer, and audio conversion requires FFmpeg installed on the machine running Clipy.
 
-Supported links: public YouTube, Instagram, Facebook/fb.watch, and TikTok URLs that can be downloaded without logging in. Private, restricted, unavailable, or unsupported content may fail. Files are temporary and are deleted after sending. Use this only for content you have permission to download; Clipy does not bypass access controls or DRM.
+Supported public clip links include YouTube, Instagram, Facebook/fb.watch, TikTok, Vimeo, Reddit, X/Twitter, Dailymotion, Streamable, Twitch clips, Pinterest, and Tumblr. This is not every website on the internet; availability depends on yt-dlp extractor support and each site's current behavior. Search currently searches YouTube only. Search results show thumbnails and are filtered to clips with known durations of 60 seconds or less. Downloads are trimmed to the first 60 seconds and require FFmpeg. Private, restricted, unavailable, or unsupported content may fail. Files are temporary and are deleted after sending. Use this only for content you have permission to download; Clipy does not bypass access controls or DRM.
 
 ## Setup in Termux
 
