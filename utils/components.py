@@ -33,6 +33,13 @@ class ClipResultsView(discord.ui.LayoutView):
             title = discord.utils.escape_markdown(result.title[:160])
             channel = discord.utils.escape_markdown(result.channel[:70])
             box.add_item(discord.ui.Separator())
+            if result.thumbnail and result.thumbnail.startswith("https://"):
+                box.add_item(discord.ui.MediaGallery(
+                    discord.MediaGalleryItem(
+                        media=result.thumbnail,
+                        description=f"Preview: {result.title[:100]}",
+                    )
+                ))
             box.add_item(discord.ui.TextDisplay(
                 f"**{i}. [{title}]({result.url})**\n"
                 f"{channel} · {duration_text(result.duration)}"
