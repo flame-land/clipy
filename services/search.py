@@ -9,6 +9,8 @@ from yt_dlp import YoutubeDL
 
 
 MAX_CLIP_SECONDS = 60
+# Search deeper than the display limit because many YouTube results are long videos.
+MAX_SEARCH_RESULTS = 60
 
 
 @dataclass(slots=True)
@@ -30,8 +32,12 @@ def _search_sync(query: str, limit: int) -> list[ClipResult]:
         "ignoreerrors": True,
         "socket_timeout": 12,
     }
+    # Fetch a much larger candidate pool, then filter to clips <= 60 seconds.
+    # YouTube search results often include full-length videos, so searching only
+    # 3x the requested count can leave the user with very few qualifying clips.
+    candidate_count = min(max(limit * 8, 40), MAX_SEARCH_RESULTS)
     with YoutubeDL(opts) as ydl:
-        info = ydl.extract_info(f"ytsearch{min(limit * 3, 30)}:{query}", download=False)
+        info = ydl.extract_info(f"ytsearch{candidate_count}:{query}", download=False)
 
     results: list[ClipResult] = []
     seen: set[str] = set()
@@ -61,8 +67,9 @@ def _search_sync(query: str, limit: int) -> list[ClipResult]:
 
 
 async def search_youtube(query: str, limit: int = 9) -> list[ClipResult]:
-    """Search YouTube off the event loop with a hard timeout, returning clips up to 60 seconds."""
+    """Search deeper and return up to 9 clips no longer than 60 seconds."""
+    safe_limit = max(1, min(limit, 9))
     return await asyncio.wait_for(
-        asyncio.to_thread(_search_sync, query, max(1, min(limit, 10))),
-        timeout=25,
+        asyncio.to_thread(_search_sync, query, safe_limit),
+        timeout=35,
     )
