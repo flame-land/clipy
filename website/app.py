@@ -368,8 +368,8 @@ def save_settings():
         return {"error": f"Duration must be between 1 and {max(1, duration_ceiling // 60)} minutes."}, 400
     if not 50 <= max_file_mb <= size_ceiling:
         return {"error": f"File size must be between 50 and {size_ceiling} MB."}, 400
-    if not 1 <= expiry_hours <= min(168, max(1, LINK_TTL // 3600)):
-        return {"error": f"Link expiry must be between 1 and {min(168, max(1, LINK_TTL // 3600))} hours."}, 400
+    if not 1 <= expiry_hours <= 168:
+        return {"error": "Link expiry must be between 1 and 168 hours."}, 400
 
     db().execute(
         """INSERT INTO guild_settings(guild_id,owner_id,format,max_duration,max_file_mb,expiry_hours,updated_at)
