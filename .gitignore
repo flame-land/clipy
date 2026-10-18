@@ -1,0 +1,22 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Runtime data and generated video files
+data/
+website/data/
+*.sqlite3
+*.log
+
+# Editors
+.vscode/
+.idea/
