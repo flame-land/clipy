@@ -290,7 +290,7 @@ def dashboard():
             invite = "https://discord.com/oauth2/authorize?" + urlencode({
                 "client_id": CLIENT_ID,
                 "scope": "bot applications.commands",
-                "permissions": "2147568640",
+                "permissions": "117760",
                 "guild_id": guild["id"],
                 "disable_guild_select": "true",
             })
