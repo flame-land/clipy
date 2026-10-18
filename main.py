@@ -69,6 +69,58 @@ def make_activity(activity_type: str, activity_name: str) -> discord.BaseActivit
     )
 
 
+def welcome_embed(guild: discord.Guild) -> discord.Embed:
+    """Build the setup guide shared with a new server and its owner."""
+    prefix = discord.utils.escape_markdown(configured_prefix())
+    embed = discord.Embed(
+        title="Thanks for adding Clipy! 🎬",
+        description=(
+            f"Thanks for inviting Clipy to **{discord.utils.escape_markdown(guild.name)}**!\n"
+            "I'm a clip finder and public-video downloader. Here's how to get started."
+        ),
+        colour=discord.Colour.from_rgb(55, 145, 220),
+    )
+    embed.add_field(
+        name="🔎 Find clips",
+        value=(
+            "`/clip search` — search YouTube for a scene or clip (up to 60 seconds).\n"
+            "`/clip random` — discover a random anime scene.\n"
+            f"`{prefix}clip search goku black` — prefix equivalent."
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name="⬇️ Download public clips",
+        value=(
+            "`/download` or `!download <URL>` — open the download options. "
+            "Clipy processes up to the first 60 seconds and offers video/audio formats. "
+            "Only public links from supported sites may work."
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name="🧭 Helpful commands",
+        value=(
+            "`/clip sources` — see supported sources.\n"
+            "`/clip help` or `!help` — full command guide.\n"
+            "`/clip ping` or `!ping` — check latency."
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name="⚙️ Setup tips",
+        value=(
+            "No special welcome-channel setup is required. I'll post here if I can find a "
+            "channel where I have permission to send messages. For prefix commands, enable "
+            "**Message Content Intent** in the Discord Developer Portal. Downloads can fail "
+            "if a site blocks access, the link is private, or the file exceeds Discord's upload limit."
+        ),
+        inline=False,
+    )
+    embed.set_footer(text="Use only content you have permission to download.")
+    return embed
+
+
 class ClipyBot(commands.Bot):
     def __init__(self):
         super().__init__(
@@ -103,6 +155,37 @@ class ClipyBot(commands.Bot):
         if self._presence_task is None or self._presence_task.done():
             self._presence_task = asyncio.create_task(self.rotate_presence())
         log.info("Logged in as %s (ID: %s)", self.user, self.user.id if self.user else "unknown")
+
+    async def on_guild_join(self, guild: discord.Guild):
+        """Welcome new servers, then DM the owner; permission failures are non-fatal."""
+        embed = welcome_embed(guild)
+        channel = guild.system_channel
+        if channel is None or not channel.permissions_for(guild.me).send_messages:
+            channel = next(
+                (
+                    candidate
+                    for candidate in guild.text_channels
+                    if candidate.permissions_for(guild.me).view_channel
+                    and candidate.permissions_for(guild.me).send_messages
+                    and candidate.permissions_for(guild.me).embed_links
+                ),
+                None,
+            )
+
+        if channel is not None:
+            try:
+                await channel.send(embed=embed)
+                log.info("Posted welcome message in #%s for guild %s (%s)", channel.name, guild.name, guild.id)
+            except discord.HTTPException:
+                log.warning("Could not post welcome message in guild %s (%s)", guild.name, guild.id)
+        else:
+            log.info("No suitable welcome channel available in guild %s (%s)", guild.name, guild.id)
+
+        try:
+            await guild.owner.send(embed=embed)
+            log.info("Sent welcome DM to owner of guild %s (%s)", guild.name, guild.id)
+        except (discord.Forbidden, discord.HTTPException, AttributeError):
+            log.info("Could not DM owner of guild %s (%s); DMs may be disabled", guild.name, guild.id)
 
     async def on_app_command_error(
         self, interaction: discord.Interaction, error: app_commands.AppCommandError
