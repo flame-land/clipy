@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import random
@@ -25,13 +26,11 @@ RANDOM_QUERIES = (
 )
 
 
-def prefix_text(ctx: commands.Context | None = None, guild_id: int | None = None) -> str:
+def prefix_text(ctx: commands.Context | None = None) -> str:
     """Get the configured prefix for this server or the default prefix."""
     default = os.getenv("BOT_PREFIX", "!").strip() or "!"
     if ctx is not None and ctx.guild is not None:
         return getattr(ctx.bot, "guild_prefixes", {}).get(str(ctx.guild.id), default)
-    if guild_id is not None:
-        return getattr(getattr(ctx, "bot", None), "guild_prefixes", {}).get(str(guild_id), default)
     return default
 
 
@@ -39,12 +38,12 @@ def help_message(prefix: str | None = None) -> str:
     p = discord.utils.escape_markdown(prefix or prefix_text())
     return (
         "**Slash commands**\n"
-        "`/clip search <clip>` — search YouTube\n"
+        "`/clip search <clip>` — search YouTube (short or long videos)\n"
         "`/clip random` — find a random anime scene\n"
         "`/clip sources` — supported download sources\n"
         "`/clip help` — show this guide\n"
         "`/clip ping` — check latency\n"
-        "`/download <link>` — download a public clip\n\n"
+        "`/download <link>` — download the first 60 seconds of a public video\n\n"
         "**Prefix commands**\n"
         f"`{p}clip search <keywords>`\n"
         f"`{p}clip random`\n"
@@ -60,7 +59,7 @@ def help_message(prefix: str | None = None) -> str:
 
 def source_message() -> str:
     return (
-        "**Clip search**\nYouTube only · results are limited to clips up to 60 seconds\n\n"
+        "**Clip search**\nYouTube search · includes short clips and full-length videos\n\n"
         "**Public-link downloads**\nYouTube, Instagram, Facebook, TikTok, Vimeo, Reddit, "
         "X/Twitter, Dailymotion, Streamable, Twitch clips, Pinterest, and Tumblr.\n\n"
         "Support varies by site and individual link. Private, restricted, or unavailable "
@@ -71,13 +70,13 @@ def source_message() -> str:
 class ClipCommands(
     commands.GroupCog,
     group_name="clip",
-    description="Find short clips and download public video links.",
+    description="Search YouTube videos and download public video links.",
 ):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @app_commands.command(name="search", description="Search YouTube for a clip or scene.")
-    @app_commands.describe(clip="What scene or clip should Clipy find?")
+    @app_commands.command(name="search", description="Search YouTube for short or long videos.")
+    @app_commands.describe(clip="What scene, clip, or video should Clipy find?")
     @app_commands.checks.cooldown(1, 8.0)
     async def search(self, interaction: discord.Interaction, clip: str):
         query = " ".join(clip.split()).strip()
@@ -111,7 +110,7 @@ class ClipCommands(
             await interaction.followup.send(
                 view=status_view(
                     "No results",
-                    f"No short clips found for {discord.utils.escape_markdown(query)}. Try different keywords.",
+                    f"No YouTube videos found for {discord.utils.escape_markdown(query)}. Try different keywords.",
                 ),
                 ephemeral=True,
             )
@@ -124,7 +123,7 @@ class ClipCommands(
         query = random.choice(RANDOM_QUERIES)
         await interaction.response.defer(thinking=True)
         try:
-            results = await search_youtube(query, limit=6)
+            results = await search_youtube(query, limit=9)
         except Exception:
             log.exception("Random search failed")
             await interaction.followup.send(
@@ -189,7 +188,7 @@ class ClipCommands(
             await ctx.send(
                 view=status_view(
                     "No results",
-                    f"No short clips matched {discord.utils.escape_markdown(query)}.",
+                    f"No YouTube videos matched {discord.utils.escape_markdown(query)}.",
                 )
             )
             return
@@ -201,7 +200,7 @@ class ClipCommands(
         query = random.choice(RANDOM_QUERIES)
         async with ctx.typing():
             try:
-                results = await search_youtube(query, limit=6)
+                results = await search_youtube(query, limit=9)
             except Exception:
                 log.exception("Prefix random search failed")
                 await ctx.send(view=status_view("Search failed", "Try again in a bit."))
@@ -227,18 +226,16 @@ class ClipCommands(
                 "Choose a prefix 1–5 characters long with no spaces. Example: `!prefix ?`",
             ))
             return
+
         bot = ctx.bot
         guild_id = str(ctx.guild.id)
         previous = getattr(bot, "guild_prefixes", {}).get(guild_id, prefix_text())
         bot.guild_prefixes[guild_id] = new_prefix
         try:
-            store = getattr(bot, "prefix_store", None)
-            if store is None:
-                from main import PREFIX_STORE
-                store = PREFIX_STORE
-            store.parent.mkdir(parents=True, exist_ok=True)
-            store.write_text(
-                __import__("json").dumps(bot.guild_prefixes, indent=2, sort_keys=True) + "\\n",
+            from main import PREFIX_STORE
+            PREFIX_STORE.parent.mkdir(parents=True, exist_ok=True)
+            PREFIX_STORE.write_text(
+                json.dumps(bot.guild_prefixes, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
         except OSError:
