@@ -13,6 +13,14 @@ class DownloadURLValidationTests(unittest.TestCase):
             "https://www.instagram.com/reel/abc/",
             "https://fb.watch/abc/",
             "https://www.tiktok.com/@user/video/123",
+            "https://vimeo.com/123456",
+            "https://www.reddit.com/r/anime/comments/example/",
+            "https://x.com/example/status/123",
+            "https://www.dailymotion.com/video/example",
+            "https://streamable.com/example",
+            "https://clips.twitch.tv/example",
+            "https://pin.it/example",
+            "https://example.tumblr.com/video/123",
         ):
             with self.subTest(url=url):
                 self.assertEqual(validate_url(url), url)
