@@ -159,15 +159,25 @@ class ClipyBot(commands.Bot):
     async def on_guild_join(self, guild: discord.Guild):
         """Welcome new servers, then DM the owner; permission failures are non-fatal."""
         embed = welcome_embed(guild)
+        bot_member = guild.me
         channel = guild.system_channel
-        if channel is None or not channel.permissions_for(guild.me).send_messages:
+        if bot_member is None:
+            channel = None
+        elif channel is None:
+            channel = None
+        else:
+            permissions = channel.permissions_for(bot_member)
+            if not (permissions.view_channel and permissions.send_messages and permissions.embed_links):
+                channel = None
+
+        if channel is None and bot_member is not None:
             channel = next(
                 (
                     candidate
                     for candidate in guild.text_channels
-                    if candidate.permissions_for(guild.me).view_channel
-                    and candidate.permissions_for(guild.me).send_messages
-                    and candidate.permissions_for(guild.me).embed_links
+                    if candidate.permissions_for(bot_member).view_channel
+                    and candidate.permissions_for(bot_member).send_messages
+                    and candidate.permissions_for(bot_member).embed_links
                 ),
                 None,
             )
