@@ -25,12 +25,18 @@ RANDOM_QUERIES = (
 )
 
 
-def prefix_text() -> str:
-    return os.getenv("BOT_PREFIX", "!").strip() or "!"
+def prefix_text(ctx: commands.Context | None = None, guild_id: int | None = None) -> str:
+    """Get the configured prefix for this server or the default prefix."""
+    default = os.getenv("BOT_PREFIX", "!").strip() or "!"
+    if ctx is not None and ctx.guild is not None:
+        return getattr(ctx.bot, "guild_prefixes", {}).get(str(ctx.guild.id), default)
+    if guild_id is not None:
+        return getattr(getattr(ctx, "bot", None), "guild_prefixes", {}).get(str(guild_id), default)
+    return default
 
 
-def help_message() -> str:
-    p = discord.utils.escape_markdown(prefix_text())
+def help_message(prefix: str | None = None) -> str:
+    p = discord.utils.escape_markdown(prefix or prefix_text())
     return (
         "**Slash commands**\n"
         "`/clip search <clip>` — search YouTube\n"
@@ -45,6 +51,7 @@ def help_message() -> str:
         f"`{p}clip sources`\n"
         f"`{p}download <URL>`\n"
         f"`{p}help`\n"
+        f"`{p}prefix <new-prefix>` — change this server's prefix (Manage Server permission)\n"
         f"`{p}ping`\n\n"
         "You can also mention the bot before a prefix command. Enable Message Content Intent "
         "in the Developer Portal for prefix and mention commands."
@@ -140,8 +147,11 @@ class ClipCommands(
 
     @app_commands.command(name="help", description="Show Clipy's available commands.")
     async def help_command(self, interaction: discord.Interaction):
+        prefix = getattr(self.bot, "guild_prefixes", {}).get(
+            str(interaction.guild_id), prefix_text()
+        )
         await interaction.response.send_message(
-            view=status_view("Clipy commands", help_message()), ephemeral=True
+            view=status_view("Clipy commands", help_message(prefix)), ephemeral=True
         )
 
     @app_commands.command(name="ping", description="Check Clipy's response latency.")
@@ -153,7 +163,7 @@ class ClipCommands(
 
     @commands.group(name="clip", invoke_without_command=True)
     async def prefix_clip(self, ctx: commands.Context):
-        p = prefix_text()
+        p = prefix_text(ctx)
         await ctx.send(
             view=status_view(
                 "Clip commands",
@@ -205,9 +215,47 @@ class ClipCommands(
     async def prefix_sources(self, ctx: commands.Context):
         await ctx.send(view=status_view("Sources", source_message()))
 
+    @commands.command(name="prefix")
+    @commands.guild_only()
+    @commands.has_guild_permissions(manage_guild=True)
+    async def prefix_set(self, ctx: commands.Context, new_prefix: str):
+        """Set this server's prefix. Requires Manage Server permission."""
+        new_prefix = new_prefix.strip()
+        if not new_prefix or len(new_prefix) > 5 or any(char.isspace() for char in new_prefix):
+            await ctx.send(view=status_view(
+                "Invalid prefix",
+                "Choose a prefix 1–5 characters long with no spaces. Example: `!prefix ?`",
+            ))
+            return
+        bot = ctx.bot
+        guild_id = str(ctx.guild.id)
+        previous = getattr(bot, "guild_prefixes", {}).get(guild_id, prefix_text())
+        bot.guild_prefixes[guild_id] = new_prefix
+        try:
+            store = getattr(bot, "prefix_store", None)
+            if store is None:
+                from main import PREFIX_STORE
+                store = PREFIX_STORE
+            store.parent.mkdir(parents=True, exist_ok=True)
+            store.write_text(
+                __import__("json").dumps(bot.guild_prefixes, indent=2, sort_keys=True) + "\\n",
+                encoding="utf-8",
+            )
+        except OSError:
+            bot.guild_prefixes[guild_id] = previous
+            await ctx.send(view=status_view(
+                "Could not save prefix", "I couldn't write the prefix settings to disk. Try again later."
+            ))
+            return
+        await ctx.send(view=status_view(
+            "Server prefix updated",
+            f"This server's prefix is now `{discord.utils.escape_markdown(new_prefix)}`. "
+            f"Use `{discord.utils.escape_markdown(new_prefix)}help` for the updated command guide.",
+        ))
+
     @commands.command(name="help")
     async def prefix_help(self, ctx: commands.Context):
-        await ctx.send(view=status_view("Clipy commands", help_message()))
+        await ctx.send(view=status_view("Clipy commands", help_message(prefix_text(ctx))))
 
     @commands.command(name="ping")
     async def prefix_ping(self, ctx: commands.Context):
