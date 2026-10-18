@@ -22,7 +22,7 @@ Prefix commands (default prefix is `!`):
 
 Mention commands also work, for example: `@Clipy clip search goku black`. Enable Message Content Intent in the Discord Developer Portal for prefix and mention commands.
 
-## Welcome messages
+The prefix is stored per server in `data/prefixes.json` and survives restarts as long as the host keeps that file. Each server can choose its own prefix; `!help` updates to show that server's current prefix. Mention commands continue to work.\n\n## Welcome messages
 
 When Clipy joins a server, it sends a welcome/setup guide to the server's system channel when possible, or the first text channel where it has permission to view and send messages and embed links. It also attempts to DM the server owner with the same guide.
 
