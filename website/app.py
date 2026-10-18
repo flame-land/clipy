@@ -82,6 +82,11 @@ def init_db():
             token TEXT PRIMARY KEY, owner_id TEXT NOT NULL, file_path TEXT NOT NULL,
             filename TEXT NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL
         )""")
+        conn.execute("""CREATE TABLE IF NOT EXISTS guild_settings (
+            guild_id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, format TEXT NOT NULL DEFAULT 'best',
+            max_duration INTEGER NOT NULL DEFAULT 3600, max_file_mb INTEGER NOT NULL DEFAULT 2048,
+            expiry_hours INTEGER NOT NULL DEFAULT 24, updated_at INTEGER NOT NULL
+        )""")
         conn.commit()
 
 
@@ -159,6 +164,18 @@ def discord_get(path, token, *, bot=False):
     )
     response.raise_for_status()
     return response.json()
+
+
+def get_guild_settings(guild_id, owner_id):
+    row = db().execute("SELECT * FROM guild_settings WHERE guild_id=?", (str(guild_id),)).fetchone()
+    if row:
+        return dict(row)
+    return {
+        "guild_id": str(guild_id), "owner_id": str(owner_id), "format": "best",
+        "max_duration": min(MAX_DURATION, 3600),
+        "max_file_mb": min(MAX_FILE_BYTES // (1024 * 1024), 2048),
+        "expiry_hours": min(max(LINK_TTL // 3600, 1), 168),
+    }
 
 
 def can_manage_guild(guild):
@@ -324,14 +341,27 @@ def server_dashboard(guild_id):
             return redirect("/dashboard")
     except requests.RequestException:
         abort(502, "Could not verify Clipy's membership in this server.")
+    settings = get_guild_settings(guild_id, user["user_id"])
+    max_mb = max(50, min(int(settings["max_file_mb"]), MAX_FILE_BYTES // (1024 * 1024), 2048))
     body = f"""
-<section class="hero"><div class="eyebrow">Server dashboard</div><h1>{guild["name"]}</h1><p>Paste a public video link to process it on the website. Large files aren't sent through Discord attachments; your generated link will be hosted temporarily by this web service.</p><a href="/dashboard">← All servers</a></section>
-<section class="panel"><h2>Generate a download link</h2><form id="download-form"><label for="video-url">Video URL</label><input id="video-url" name="url" type="url" placeholder="https://www.youtube.com/watch?v=…" required autocomplete="url"><button class="btn" id="submit-btn" type="submit">Process video →</button><p class="note">Supported public sites only. Current defaults: up to 1 hour and 2 GB, subject to hosting storage, bandwidth, and platform restrictions. Generated links expire after 24 hours.</p></form><div id="message" aria-live="polite"></div></section>
-<section class="result"><h2>How it works</h2><p>1. Paste the original video URL. 2. Clipy processes it on the website server. 3. Copy the generated URL and open it to download the file.</p></section>
+<section class="hero"><div class="eyebrow">Server dashboard</div><h1>{guild["name"]}</h1><p>Manage this server's video settings and create temporary download links. Large files are hosted by this website, not sent through Discord.</p><a href="/dashboard">← All servers</a></section>
+<section class="panel"><h2>Download settings</h2><p>These preferences are saved for this server. Hosting-wide limits still apply.</p>
+<form id="settings-form">
+<label for="format">Output format</label><select id="format" name="format"><option value="best">Best available (keep original)</option><option value="mp4">MP4 video</option><option value="mp3">MP3 audio only</option></select>
+<label for="max-duration">Maximum duration (minutes)</label><input id="max-duration" name="max_duration" type="number" min="1" max="{max(1,min(MAX_DURATION//60,60))}" value="{max(1,min(int(settings["max_duration"])//60,MAX_DURATION//60,60))}" required>
+<label for="max-file-mb">Maximum file size (MB)</label><input id="max-file-mb" name="max_file_mb" type="number" min="50" max="{max_mb}" value="{max_mb}" required>
+<label for="expiry-hours">Download link expiry (hours)</label><input id="expiry-hours" name="expiry_hours" type="number" min="1" max="168" value="{max(1,min(int(settings["expiry_hours"]),168))}" required>
+<button class="btn" id="save-settings" type="submit">Save settings</button><div id="settings-message" aria-live="polite"></div>
+</form></section>
+<section class="panel" style="margin-top:18px"><h2>Generate a download link</h2><form id="download-form"><label for="video-url">Video URL</label><input id="video-url" name="url" type="url" placeholder="https://www.youtube.com/watch?v=…" required autocomplete="url"><button class="btn" id="submit-btn" type="submit">Process video →</button><p class="note">Your saved settings control output format, duration, file size, and link expiry within host limits.</p></form><div id="message" aria-live="polite"></div></section>
 """
-    script = r"""
+    script = f"""
+const guildId={guild_id!r};
+document.getElementById('format').value={settings["format"]!r};
+const settingsForm=document.getElementById('settings-form'),settingsMsg=document.getElementById('settings-message');
+settingsForm.addEventListener('submit',async e=>{{e.preventDefault();const b=document.getElementById('save-settings');b.disabled=true;try{{const payload={{guild_id:guildId,format:document.getElementById('format').value,max_duration:Number(document.getElementById('max-duration').value),max_file_mb:Number(document.getElementById('max-file-mb').value),expiry_hours:Number(document.getElementById('expiry-hours').value)}};const r=await fetch('/api/settings',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify(payload)}});const d=await r.json();if(!r.ok)throw new Error(d.error||'Could not save settings');settingsMsg.innerHTML='<p class="success">Settings saved for this server.</p>'}}catch(err){{settingsMsg.innerHTML='<p class="error">'+err.message+'</p>'}}finally{{b.disabled=false}}}});
 const form=document.getElementById('download-form'),btn=document.getElementById('submit-btn'),msg=document.getElementById('message');
-form.addEventListener('submit',async e=>{e.preventDefault();btn.disabled=true;btn.textContent='Processing…';msg.innerHTML='<p>Processing may take a while for long or high-quality videos. Keep this tab open.</p>';try{const r=await fetch('/api/download',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:document.getElementById('video-url').value})});const data=await r.json();if(!r.ok)throw new Error(data.error||'Could not process this video.');msg.innerHTML='<div class="success"><strong>Ready to download</strong><p><a href="'+data.url+'">'+data.url+'</a></p><button class="btn" id="copy-link" type="button">Copy download link</button><p class="note">File: '+data.filename+' · Expires '+data.expires+' · Keep this link private.</p></div>';document.getElementById('copy-link').onclick=async()=>{await navigator.clipboard.writeText(data.url);document.getElementById('copy-link').textContent='Copied ✓'};}catch(err){msg.innerHTML='<p class="error">'+err.message+'</p>'}finally{btn.disabled=false;btn.textContent='Process video →'}});
+form.addEventListener('submit',async e=>{{e.preventDefault();btn.disabled=true;btn.textContent='Processing…';msg.innerHTML='<p>Processing may take a while for long or high-quality videos. Keep this tab open.</p>';try{{const r=await fetch('/api/download',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{guild_id:guildId,url:document.getElementById('video-url').value}})}});const data=await r.json();if(!r.ok)throw new Error(data.error||'Could not process this video.');msg.innerHTML='<div class="success"><strong>Ready to download</strong><p><a href="'+data.url+'">'+data.url+'</a></p><button class="btn" id="copy-link" type="button">Copy download link</button><p class="note">File: '+data.filename+' · Expires '+data.expires+' · Keep this link private.</p></div>';document.getElementById('copy-link').onclick=async()=>{{await navigator.clipboard.writeText(data.url);document.getElementById('copy-link').textContent='Copied ✓'}};}}catch(err){{msg.innerHTML='<p class="error">'+err.message+'</p>'}}finally{{btn.disabled=false;btn.textContent='Process video →'}}}});
 """
     return page("Server dashboard", body, script=script)
 
