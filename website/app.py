@@ -93,6 +93,29 @@ def require_config():
         abort(503, "Website setup incomplete. Configure Discord OAuth and PUBLIC_BASE_URL environment variables.")
 
 
+def cleanup_expired():
+    """Remove expired generated files and stale session/download records."""
+    now = int(time.time())
+    with DB_LOCK, sqlite3.connect(DB_PATH, timeout=20) as conn:
+        expired = conn.execute("SELECT file_path FROM downloads WHERE expires_at <= ?", (now,)).fetchall()
+        for (file_path,) in expired:
+            try:
+                candidate = Path(file_path).resolve()
+                if candidate.is_relative_to(FILES_DIR.resolve()) and candidate.is_file():
+                    candidate.unlink(missing_ok=True)
+                    parent = candidate.parent
+                    if parent != FILES_DIR.resolve():
+                        try:
+                            parent.rmdir()
+                        except OSError:
+                            pass
+            except OSError:
+                app.logger.info("Could not remove an expired generated file.")
+        conn.execute("DELETE FROM downloads WHERE expires_at <= ?", (now,))
+        conn.execute("DELETE FROM web_sessions WHERE expires_at <= ?", (now,))
+        conn.commit()
+
+
 def current_user():
     sid = session.get("sid")
     if not sid:
@@ -193,7 +216,6 @@ def login():
         "response_type": "code",
         "scope": "identify guilds",
         "state": state,
-        "prompt": "none",
     })
     return redirect(f"https://discord.com/oauth2/authorize?{params}")
 
@@ -316,6 +338,7 @@ form.addEventListener('submit',async e=>{e.preventDefault();btn.disabled=true;bt
 
 @app.post("/api/download")
 def create_download():
+    cleanup_expired()
     user = login_required()
     if not user:
         return {"error": "Please sign in again."}, 401
@@ -373,6 +396,7 @@ def create_download():
 
 @app.get("/file/<token>")
 def get_file(token):
+    cleanup_expired()
     if len(token) < 30 or not token.replace("-", "").replace("_", "").isalnum():
         abort(404)
     row = db().execute("SELECT * FROM downloads WHERE token=?", (token,)).fetchone()
