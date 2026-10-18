@@ -252,6 +252,12 @@ class ClipyBot(commands.Bot):
                 mention_author=False,
                 delete_after=8,
             )
+        elif isinstance(error, commands.MissingPermissions):
+            await ctx.reply(
+                "You need the **Manage Server** permission to change this server's prefix.",
+                mention_author=False,
+                delete_after=10,
+            )
         elif isinstance(error, commands.MissingRequiredArgument):
             await ctx.reply(
                 f"Missing argument: `{error.param.name}`. Use `{configured_prefix()}help` for help.",
