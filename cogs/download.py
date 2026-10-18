@@ -76,10 +76,16 @@ def download_sync(
         "outtmpl": output,
         "max_filesize": max_bytes,
         "noplaylist": True,
+        "max_downloads": 1,
+        "cachedir": False,
+        "writeinfojson": False,
+        "writethumbnail": False,
+        "writesubtitles": False,
+        "writeautomaticsub": False,
         "quiet": True,
         "no_warnings": True,
-        "socket_timeout": 30,
-        "retries": 3,
+        "socket_timeout": 20,
+        "retries": 2,
         "overwrites": True,
     }
 
