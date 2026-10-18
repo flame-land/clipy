@@ -22,6 +22,12 @@ Prefix commands (default prefix is `!`):
 
 Mention commands also work, for example: `@Clipy clip search goku black`. Enable Message Content Intent in the Discord Developer Portal for prefix and mention commands.
 
+## Welcome messages
+
+When Clipy joins a server, it sends a welcome/setup guide to the server's system channel when possible, or the first text channel where it has permission to view and send messages and embed links. It also attempts to DM the server owner with the same guide.
+
+The guide explains search, download, help, and setup. If no suitable channel permissions are available, the server message is skipped. If the owner has DMs disabled or blocks messages from server members, the DM may not be delivered. The bot cannot reliably identify the exact person who clicked Authorize, so the direct message is sent to the server owner.
+
 ## Downloads
 
 After running `/download` or `!download`, use the interactive menus to choose the type, quality, and format.
