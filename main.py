@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
+from pathlib import Path
 
 import discord
 from discord import app_commands
@@ -20,6 +22,17 @@ log = logging.getLogger("clipy")
 
 def configured_prefix() -> str:
     return os.getenv("BOT_PREFIX", "!").strip() or "!"
+
+
+PREFIX_STORE = Path(os.getenv("PREFIX_STORE", "data/prefixes.json"))
+
+
+async def dynamic_prefix(bot: "ClipyBot", message: discord.Message):
+    """Resolve a server-specific prefix, falling back to BOT_PREFIX."""
+    prefix = configured_prefix()
+    if message.guild is not None:
+        prefix = bot.guild_prefixes.get(str(message.guild.id), prefix)
+    return commands.when_mentioned_or(prefix)(bot, message)
 
 
 def configured_intents() -> discord.Intents:
@@ -124,14 +137,26 @@ def welcome_embed(guild: discord.Guild) -> discord.Embed:
 class ClipyBot(commands.Bot):
     def __init__(self):
         super().__init__(
-            command_prefix=commands.when_mentioned_or(configured_prefix()),
+            command_prefix=dynamic_prefix,
             intents=configured_intents(),
             help_command=None,
         )
         self._presence_task: asyncio.Task | None = None
+        self.guild_prefixes: dict[str, str] = {}
         self.tree.on_error = self.on_app_command_error
 
     async def setup_hook(self):
+        try:
+            if PREFIX_STORE.exists():
+                loaded = json.loads(PREFIX_STORE.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    self.guild_prefixes = {
+                        str(guild_id): prefix
+                        for guild_id, prefix in loaded.items()
+                        if isinstance(guild_id, str) and isinstance(prefix, str)
+                    }
+        except (OSError, json.JSONDecodeError):
+            log.exception("Could not load server prefixes from %s", PREFIX_STORE)
         await self.load_extension("cogs.clip")
         await self.load_extension("cogs.download")
         guild_id = os.getenv("DEV_GUILD_ID", "").strip()
