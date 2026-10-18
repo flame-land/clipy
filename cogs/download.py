@@ -26,6 +26,14 @@ ALLOWED_HOSTS = {
     "instagram.com", "www.instagram.com",
     "facebook.com", "www.facebook.com", "m.facebook.com", "fb.watch",
     "tiktok.com", "www.tiktok.com", "m.tiktok.com", "vm.tiktok.com", "vt.tiktok.com",
+    "vimeo.com", "www.vimeo.com", "player.vimeo.com",
+    "reddit.com", "www.reddit.com", "old.reddit.com", "v.redd.it",
+    "x.com", "www.x.com", "twitter.com", "www.twitter.com", "t.co",
+    "dailymotion.com", "www.dailymotion.com", "dai.ly",
+    "streamable.com", "www.streamable.com",
+    "twitch.tv", "www.twitch.tv", "clips.twitch.tv",
+    "pinterest.com", "www.pinterest.com", "pin.it",
+    "tumblr.com", "www.tumblr.com",
 }
 
 VIDEO_QUALITIES = {
@@ -326,7 +334,7 @@ class DownloadCommands(commands.Cog):
         safe_url = validate_url(link)
         if not safe_url:
             await interaction.response.send_message(
-                view=status_view("Unsupported link", "Use a supported public clip link from YouTube, Instagram, Facebook, or TikTok."),
+                view=status_view("Unsupported link", "Use a public clip link from a supported video platform."),
                 ephemeral=True,
             )
             return
