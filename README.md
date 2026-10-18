@@ -84,8 +84,3 @@ Example local `.env` configuration:
     BOT_ACTIVITY_INTERVAL=30
 
 Discord bots cannot set a mobile client status. This rotates the bot's standard Discord activity; it does not create Rich Presence buttons or custom assets. Change the bot's username, avatar, and About Me/profile details in the Discord Developer Portal.
-
-
-## Website dashboard
-
-A separate Discord-login web dashboard is available in [`website/`](website/README.md). It lets users sign in with Discord, choose servers they manage, invite Clipy if needed, and generate temporary download links for supported public videos. Deploy it as a separate web service and configure the OAuth redirect URI and secrets as described in the website README. It is code in this repository, not a live website until deployed.
