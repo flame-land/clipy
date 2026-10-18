@@ -11,6 +11,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from yt_dlp import YoutubeDL
+from yt_dlp.utils import download_range_func
 
 from utils.components import ACCENT, status_view
 
@@ -19,6 +20,7 @@ log = logging.getLogger(__name__)
 # Keep a generous fallback, then enforce the known Discord cap when available.
 DEFAULT_MAX_BYTES = 100 * 1024 * 1024
 DOWNLOAD_TIMEOUT = 600
+MAX_CLIP_SECONDS = 60
 ALLOWED_HOSTS = {
     "youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be",
     "instagram.com", "www.instagram.com",
@@ -87,6 +89,9 @@ def download_sync(
         "socket_timeout": 20,
         "retries": 2,
         "overwrites": True,
+        # Download/process only the first 60 seconds; requires FFmpeg.
+        "download_ranges": download_range_func(None, [(0, MAX_CLIP_SECONDS)]),
+        "force_keyframes_at_cuts": True,
     }
 
     if mode == "video":
@@ -315,13 +320,13 @@ class DownloadCommands(commands.Cog):
         return max(1, (limit or DEFAULT_MAX_BYTES) - 512 * 1024)
 
     @app_commands.command(name="download", description="Choose download type, quality, and format.")
-    @app_commands.describe(link="Public video URL from YouTube, Instagram, Facebook, or TikTok.")
+    @app_commands.describe(link="Public clip URL from a supported video platform. Only the first 60 seconds are downloaded.")
     @app_commands.checks.cooldown(1, 20.0)
     async def slash_download(self, interaction: discord.Interaction, link: str):
         safe_url = validate_url(link)
         if not safe_url:
             await interaction.response.send_message(
-                view=status_view("Unsupported link", "Use a public YouTube, Instagram, Facebook, or TikTok link."),
+                view=status_view("Unsupported link", "Use a supported public clip link from YouTube, Instagram, Facebook, or TikTok."),
                 ephemeral=True,
             )
             return
