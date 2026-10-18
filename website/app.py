@@ -336,6 +336,53 @@ form.addEventListener('submit',async e=>{e.preventDefault();btn.disabled=true;bt
     return page("Server dashboard", body, script=script)
 
 
+@app.post("/api/settings")
+def save_settings():
+    user = login_required()
+    if not user:
+        return {"error": "Please sign in again."}, 401
+    payload = request.get_json(silent=True) or {}
+    guild_id = str(payload.get("guild_id", ""))
+    if not guild_id.isdigit():
+        return {"error": "Choose a valid server."}, 400
+    try:
+        guilds = discord_get("/users/@me/guilds", user["access_token"])
+    except requests.RequestException:
+        return {"error": "Could not verify your Discord server permissions."}, 502
+    if not any(guild["id"] == guild_id and can_manage_guild(guild) for guild in guilds):
+        return {"error": "You need Manage Server or Administrator permission for this server."}, 403
+
+    output_format = payload.get("format", "best")
+    if output_format not in {"best", "mp4", "mp3"}:
+        return {"error": "Choose best, MP4, or MP3 output."}, 400
+    try:
+        max_duration = int(payload.get("max_duration", 60)) * 60
+        max_file_mb = int(payload.get("max_file_mb", 2048))
+        expiry_hours = int(payload.get("expiry_hours", 24))
+    except (TypeError, ValueError):
+        return {"error": "Settings must be valid numbers."}, 400
+
+    duration_ceiling = min(MAX_DURATION, 3600)
+    size_ceiling = min(MAX_FILE_BYTES // (1024 * 1024), 2048)
+    if not 60 <= max_duration <= duration_ceiling:
+        return {"error": f"Duration must be between 1 and {max(1, duration_ceiling // 60)} minutes."}, 400
+    if not 50 <= max_file_mb <= size_ceiling:
+        return {"error": f"File size must be between 50 and {size_ceiling} MB."}, 400
+    if not 1 <= expiry_hours <= min(168, max(1, LINK_TTL // 3600)):
+        return {"error": f"Link expiry must be between 1 and {min(168, max(1, LINK_TTL // 3600))} hours."}, 400
+
+    db().execute(
+        """INSERT INTO guild_settings(guild_id,owner_id,format,max_duration,max_file_mb,expiry_hours,updated_at)
+        VALUES(?,?,?,?,?,?,?)
+        ON CONFLICT(guild_id) DO UPDATE SET owner_id=excluded.owner_id, format=excluded.format,
+        max_duration=excluded.max_duration, max_file_mb=excluded.max_file_mb,
+        expiry_hours=excluded.expiry_hours, updated_at=excluded.updated_at""",
+        (guild_id, user["user_id"], output_format, max_duration, max_file_mb, expiry_hours, int(time.time())),
+    )
+    db().commit()
+    return {"ok": True}
+
+
 @app.post("/api/download")
 def create_download():
     cleanup_expired()
@@ -344,8 +391,22 @@ def create_download():
         return {"error": "Please sign in again."}, 401
     payload = request.get_json(silent=True) or {}
     url = validate_video_url(payload.get("url", ""))
+    guild_id = str(payload.get("guild_id", ""))
     if not url:
         return {"error": "Use an HTTPS video URL from one of Clipy's supported public sites."}, 400
+    if not guild_id.isdigit():
+        return {"error": "Choose a server before processing a video."}, 400
+    try:
+        guilds = discord_get("/users/@me/guilds", user["access_token"])
+    except requests.RequestException:
+        return {"error": "Could not verify your Discord server permissions."}, 502
+    if not any(guild["id"] == guild_id and can_manage_guild(guild) for guild in guilds):
+        return {"error": "You need Manage Server or Administrator permission for this server."}, 403
+    settings = get_guild_settings(guild_id, user["user_id"])
+    max_duration = min(int(settings["max_duration"]), MAX_DURATION)
+    max_file_bytes = min(int(settings["max_file_mb"]) * 1024 * 1024, MAX_FILE_BYTES)
+    link_ttl = min(int(settings["expiry_hours"]) * 3600, LINK_TTL)
+    output_format = settings["format"]
 
     # Keep work and output on the server; never trust a remote filename or a client path.
     job_dir = FILES_DIR / secrets.token_hex(16)
@@ -353,7 +414,7 @@ def create_download():
     opts = {
         "outtmpl": str(job_dir / "video.%(ext)s"),
         "noplaylist": True,
-        "max_filesize": MAX_FILE_BYTES,
+        "max_filesize": max_file_bytes,
         "quiet": True,
         "no_warnings": True,
         "socket_timeout": 25,
@@ -361,9 +422,23 @@ def create_download():
         "cachedir": False,
         "ffmpeg_location": imageio_ffmpeg.get_ffmpeg_exe(),
         "match_filter": yt_dlp.utils.match_filter_func(
-            f"duration > {MAX_DURATION}"
+            f"duration > {max_duration}"
         ),
     }
+    if output_format == "mp4":
+        opts.update({
+            "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+            "merge_output_format": "mp4",
+        })
+    elif output_format == "mp3":
+        opts.update({
+            "format": "bestaudio/best",
+            "postprocessors": [{
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "192",
+            }],
+        })
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=True)
@@ -371,10 +446,10 @@ def create_download():
         if not candidates:
             raise RuntimeError("No output file was created.")
         path = max(candidates, key=lambda p: p.stat().st_size)
-        if path.stat().st_size > MAX_FILE_BYTES:
+        if path.stat().st_size > max_file_bytes:
             raise RuntimeError("The file exceeds the configured hosting limit.")
         token = secrets.token_urlsafe(32)
-        expires = int(time.time()) + LINK_TTL
+        expires = int(time.time()) + link_ttl
         filename = f"{(info or {}).get('title') or 'clip'}{path.suffix}"
         # Strip control characters and keep a sensible filename length.
         filename = "".join(ch for ch in filename if ch.isprintable() and ch not in '\\\\/:*?"<>|')[:160] or f"clip{path.suffix}"
