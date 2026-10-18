@@ -1,6 +1,6 @@
 # Clipy
 
-Clipy is a Discord clip-finder bot. It searches YouTube for short clips, shows thumbnail previews, and can send the first 60 seconds of supported public video links as attachments.
+Clipy is a Discord video finder. It searches YouTube for short clips and full-length videos, shows thumbnail previews, and can send the first 60 seconds of supported public video links as attachments.
 
 ## Commands
 
@@ -18,11 +18,13 @@ Prefix commands (default prefix is `!`):
 - `!clip sources`
 - `!download https://...`
 - `!help`
+- `!prefix ?` — set this server's prefix to `?` (requires Manage Server permission)
+- `?help` — show the help guide with the current server prefix
 - `!ping`
 
 Mention commands also work, for example: `@Clipy clip search goku black`. Enable Message Content Intent in the Discord Developer Portal for prefix and mention commands.
 
-The prefix is stored per server in `data/prefixes.json` and survives restarts as long as the host keeps that file. Each server can choose its own prefix; `!help` updates to show that server's current prefix. Mention commands continue to work.\n\n## Welcome messages
+The prefix is stored per server in `data/prefixes.json` and survives restarts as long as the host keeps that file. Use `!prefix ?` to set this server's prefix to `?`. Only members with **Manage Server** permission can change it. The help command uses that server's current prefix, so after changing it, use `?help` in that server. Each server has an independent prefix; mention commands continue to work.\n\n## Welcome messages
 
 When Clipy joins a server, it sends a welcome/setup guide to the server's system channel when possible, or the first text channel where it has permission to view and send messages and embed links. It also attempts to DM the server owner with the same guide.
 
@@ -46,7 +48,7 @@ Clipy installs `imageio-ffmpeg`, which provides a bundled FFmpeg executable on s
 
 Some hosts or media operations may still require a compatible system FFmpeg/ffprobe installation. FFmpeg availability depends on the host platform and package wheel.
 
-Supported public-link download sources include YouTube, Instagram, Facebook/fb.watch, TikTok, Vimeo, Reddit, X/Twitter, Dailymotion, Streamable, Twitch clips, Pinterest, and Tumblr. This is not every website on the internet: support depends on yt-dlp's extractors and each site's current behavior. Search currently searches YouTube only. Search results include thumbnails and are filtered to clips with known durations of 60 seconds or less.
+Supported public-link download sources include YouTube, Instagram, Facebook/fb.watch, TikTok, Vimeo, Reddit, X/Twitter, Dailymotion, Streamable, Twitch clips, Pinterest, and Tumblr. This is not every website on the internet: support depends on yt-dlp's extractors and each site's current behavior. Search currently searches YouTube only. Search results include thumbnails and can include short clips, long videos, and results whose duration is not provided by YouTube.
 
 Private, restricted, unavailable, or unsupported content may fail. Files are temporary and are deleted after sending. Only download content you have permission to use; Clipy does not bypass access controls or DRM.
 
