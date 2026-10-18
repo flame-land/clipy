@@ -76,6 +76,7 @@ class ClipCommands(commands.GroupCog, group_name="clip", description="Find clips
         await interaction.followup.send(view=ClipResultsView(query, results, interaction.user.id))
 
     @app_commands.command(name="random", description="Search for a random anime scene.")
+    @app_commands.checks.cooldown(1, 8.0)
     async def random_clip(self, interaction: discord.Interaction):
         query = random.choice(["Dragon Ball iconic scene", "anime fight scene", "Goku Black scene", "Jujutsu Kaisen fight scene", "Naruto iconic scene", "One Piece fight scene"])
         await interaction.response.defer(thinking=True)
@@ -108,6 +109,7 @@ class ClipCommands(commands.GroupCog, group_name="clip", description="Find clips
         await ctx.send(view=status_view("Clip commands", f"Try `{p}clip search <keywords>`, `{p}clip random`, or `{p}clip sources`."))
 
     @prefix_clip.command(name="search")
+    @commands.cooldown(1, 8.0, commands.BucketType.user)
     async def prefix_search(self, ctx: commands.Context, *, clip: str):
         query = " ".join(clip.split()).strip()
         if len(query) < 2 or len(query) > 180:
@@ -126,6 +128,7 @@ class ClipCommands(commands.GroupCog, group_name="clip", description="Find clips
         await ctx.send(view=ClipResultsView(query, results, ctx.author.id))
 
     @prefix_clip.command(name="random")
+    @commands.cooldown(1, 8.0, commands.BucketType.user)
     async def prefix_random(self, ctx: commands.Context):
         query = random.choice(["Dragon Ball iconic scene", "anime fight scene", "Goku Black scene", "Jujutsu Kaisen fight scene", "Naruto iconic scene", "One Piece fight scene"])
         async with ctx.typing():
