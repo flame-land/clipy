@@ -13,6 +13,8 @@ Slash commands:
 - `/download link:<URL>` — choose download type, quality, and format.
 - `/bgremove` — open the BGremover photo/video green-screen tool.
 - `/editor` — interactive editing coach for transitions, effects, color grading, presets, and video feedback.
+- `/editor-enable channel:` — enable the editing coach in a channel (Manage Server required).
+- `/editor-disable channel:` — disable it in a channel (Manage Server required).
 
 Prefix commands (default prefix is `!`):
 - `!clip search goku black`
