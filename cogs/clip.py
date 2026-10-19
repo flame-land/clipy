@@ -51,6 +51,7 @@ def help_message(prefix: str | None = None) -> str:
         f"`{p}clip sources`\n"
         f"`{p}download <URL>`\n"
         f"`{p}bgremove` — open the green-screen tool\n"
+        f"`{p}agent enable #channel` / `{p}agent disable #channel` — control the editing coach (Manage Server)\n"
         f"`{p}help`\n"
         f"`{p}prefix <new-prefix>` — change this server's prefix (Manage Server permission)\n"
         f"`{p}ping`\n\n"
