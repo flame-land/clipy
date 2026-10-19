@@ -428,6 +428,56 @@ class EditorAgent(commands.Cog):
         )
 
 
+    @app_commands.guild_only()
+    @app_commands.default_permissions(manage_guild=True)
+    @app_commands.command(name="editor-enable", description="Enable the editing coach in a channel.")
+    @app_commands.describe(channel="Text channel where the editing coach should respond.")
+    async def editor_enable_slash(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        if interaction.guild is None or not isinstance(interaction.user, discord.Member) or not interaction.user.guild_permissions.manage_guild:
+            await interaction.response.send_message("You need the **Manage Server** permission to change this setting.", ephemeral=True)
+            return
+        guild_id = str(interaction.guild.id)
+        channels = self.enabled_channels.setdefault(guild_id, set())
+        if channel.id in channels:
+            await interaction.response.send_message("The editing coach is already enabled in " + channel.mention + ".", ephemeral=True)
+            return
+        channels.add(channel.id)
+        try:
+            self.save_channels()
+        except OSError:
+            channels.discard(channel.id)
+            await interaction.response.send_message("I couldn't save that setting. Check that the bot host allows writing files.", ephemeral=True)
+            return
+        await interaction.response.send_message(
+            "Editing coach enabled in " + channel.mention + ". I'll offer the interactive helper when someone asks for editing help or resources there.",
+            ephemeral=True,
+        )
+
+    @app_commands.guild_only()
+    @app_commands.default_permissions(manage_guild=True)
+    @app_commands.command(name="editor-disable", description="Disable the editing coach in a channel.")
+    @app_commands.describe(channel="Text channel where the editing coach should stop responding.")
+    async def editor_disable_slash(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        if interaction.guild is None or not isinstance(interaction.user, discord.Member) or not interaction.user.guild_permissions.manage_guild:
+            await interaction.response.send_message("You need the **Manage Server** permission to change this setting.", ephemeral=True)
+            return
+        guild_id = str(interaction.guild.id)
+        channels = self.enabled_channels.get(guild_id, set())
+        if channel.id not in channels:
+            await interaction.response.send_message("The editing coach isn't enabled in " + channel.mention + ".", ephemeral=True)
+            return
+        channels.discard(channel.id)
+        if not channels:
+            self.enabled_channels.pop(guild_id, None)
+        try:
+            self.save_channels()
+        except OSError:
+            self.enabled_channels.setdefault(guild_id, set()).add(channel.id)
+            await interaction.response.send_message("I couldn't save that setting. Check that the bot host allows writing files.", ephemeral=True)
+            return
+        await interaction.response.send_message("Editing coach disabled in " + channel.mention + ".", ephemeral=True)
+
+
 def prefix_for(ctx: commands.Context) -> str:
     default = os.getenv("BOT_PREFIX", "!").strip() or "!"
     if ctx.guild is not None:
