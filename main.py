@@ -159,6 +159,7 @@ class ClipyBot(commands.Bot):
             log.exception("Could not load server prefixes from %s", PREFIX_STORE)
         await self.load_extension("cogs.clip")
         await self.load_extension("cogs.download")
+        await self.load_extension("cogs.editor_agent")
         guild_id = os.getenv("DEV_GUILD_ID", "").strip()
         if guild_id.isdigit():
             guild = discord.Object(id=int(guild_id))
