@@ -12,6 +12,7 @@ Slash commands:
 - `/clip ping` — check gateway latency.
 - `/download link:<URL>` — choose download type, quality, and format.
 - `/bgremove` — open the BGremover photo/video green-screen tool.
+- `/editor` — interactive editing coach for transitions, effects, color grading, presets, and video feedback.
 
 Prefix commands (default prefix is `!`):
 - `!clip search goku black`
