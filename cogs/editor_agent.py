@@ -14,6 +14,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import discord
+import imageio_ffmpeg
 from discord import app_commands
 from discord.ext import commands
 
@@ -71,7 +72,7 @@ def _search_web(query: str) -> list[dict]:
 
 def _extract_frames(video_path: str) -> list[str]:
     """Sample up to four frames. Returns base64 JPEGs; never stores them persistently."""
-    ffmpeg = os.getenv("FFMPEG_BINARY", "ffmpeg")
+    ffmpeg = os.getenv("FFMPEG_BINARY", "").strip() or imageio_ffmpeg.get_ffmpeg_exe()
     frames: list[str] = []
     with tempfile.TemporaryDirectory(prefix="clipy_editor_") as folder:
         for index, seconds in enumerate((0.8, 2.5, 5.0, 8.0)):
@@ -147,8 +148,35 @@ class EditorWizard(discord.ui.LayoutView):
         self.requester_id = requester_id
         self.attachment = attachment
         self.initial_details = initial_details.strip()
-        self.task = "transition"
-        self.software = "any"
+        lowered = self.initial_details.lower()
+        if any(word in lowered for word in ("xml", "preset", "overlay", "resource", "download link")):
+            self.task = "assets"
+        elif any(word in lowered for word in ("feedback", "improve", "what should", "review my", "what to fix")):
+            self.task = "feedback"
+        elif any(word in lowered for word in ("color grade", "colour grade", "grading", "coloring")):
+            self.task = "color"
+        elif any(word in lowered for word in ("velocity", "sync", "beat")):
+            self.task = "velocity"
+        elif any(word in lowered for word in ("effect", "vfx", "glow", "shake")):
+            self.task = "effects"
+        elif any(word in lowered for word in ("idea", "concept", "story", "theme")):
+            self.task = "story"
+        elif any(word in lowered for word in ("transition", "transition idea")):
+            self.task = "transition"
+        else:
+            self.task = "other"
+        if "capcut" in lowered:
+            self.software = "capcut"
+        elif "alight motion" in lowered or "am" in lowered.split():
+            self.software = "alight"
+        elif "after effects" in lowered or "ae" in lowered.split():
+            self.software = "ae"
+        elif "premiere" in lowered:
+            self.software = "premiere"
+        elif "davinci" in lowered or "resolve" in lowered:
+            self.software = "davinci"
+        else:
+            self.software = "any"
         self.render()
 
     def render(self):
@@ -373,7 +401,6 @@ class EditorAgent(commands.Cog):
         self._last_trigger[key] = now
         try:
             await message.reply(
-                content="I can help with that. Choose the type of help and your editor first:",
                 view=EditorWizard(message.author.id, video, content),
                 mention_author=False,
                 allowed_mentions=discord.AllowedMentions.none(),
