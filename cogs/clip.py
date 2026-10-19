@@ -45,6 +45,8 @@ def help_message(prefix: str | None = None) -> str:
         "`/clip ping` — check latency\n"
         "`/download <link>` — download the first 60 seconds of a public video\n"
         "`/bgremove` — open the green-screen tool\n\n"
+        "`/editor` — get tailored editing advice and optional video feedback\n"
+        "`/editor-enable channel:<channel>` / `/editor-disable channel:<channel>` — manage the editing coach (Manage Server)\n"
         "**Prefix commands**\n"
         f"`{p}clip search <keywords>`\n"
         f"`{p}clip random`\n"
