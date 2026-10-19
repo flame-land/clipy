@@ -76,6 +76,7 @@ class ClipCommands(
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @app_commands.command(name="search", description="Search YouTube for short or long videos.")
     @app_commands.describe(clip="What scene, clip, or video should Clipy find?")
     @app_commands.checks.cooldown(1, 8.0)
@@ -118,6 +119,7 @@ class ClipCommands(
             return
         await interaction.followup.send(view=ClipResultsView(query, results, interaction.user.id))
 
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @app_commands.command(name="random", description="Search for a random anime scene.")
     @app_commands.checks.cooldown(1, 8.0)
     async def random_clip(self, interaction: discord.Interaction):
@@ -139,12 +141,14 @@ class ClipCommands(
             return
         await interaction.followup.send(view=ClipResultsView(query, results, interaction.user.id))
 
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @app_commands.command(name="sources", description="Show search and download sources.")
     async def sources(self, interaction: discord.Interaction):
         await interaction.response.send_message(
             view=status_view("Sources", source_message()), ephemeral=True
         )
 
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @app_commands.command(name="help", description="Show Clipy's available commands.")
     async def help_command(self, interaction: discord.Interaction):
         prefix = getattr(self.bot, "guild_prefixes", {}).get(
@@ -154,6 +158,7 @@ class ClipCommands(
             view=status_view("Clipy commands", help_message(prefix)), ephemeral=True
         )
 
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @app_commands.command(name="bgremove", description="Open the AI green-screen tool for photos and videos.")
     async def bgremove(self, interaction: discord.Interaction):
         url = os.getenv("BGREMOVER_URL", "").strip().rstrip("/")
@@ -162,6 +167,7 @@ class ClipCommands(
             return
         await interaction.response.send_message(view=status_view("AI green screen", f"Remove the background from a photo or short video, then download it with a solid green background.\n\n[Open BGremover]({url})\n\nPhotos: PNG, JPG, WebP, BMP · Videos: MP4, MOV, MKV, WebM, AVI."))
 
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @app_commands.command(name="ping", description="Check Clipy's response latency.")
     async def ping(self, interaction: discord.Interaction):
         await interaction.response.send_message(
