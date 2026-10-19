@@ -122,12 +122,24 @@ def _groq_answer(task: str, software: str, details: str, sources: list[dict], fr
     content: list[dict] = [{"type": "text", "text": user_text}]
     for frame in frames:
         content.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + frame}})
-    result = _post_json(
-        "https://api.groq.com/openai/v1/chat/completions",
-        {"model": model, "messages": [{"role": "system", "content": system},
-         {"role": "user", "content": content}], "temperature": 0.45, "max_tokens": 1100},
-        {"Authorization": f"Bearer {key}"}, timeout=50,
-    )
+    endpoint = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {"Authorization": f"Bearer {key}"}
+    payload = {"model": model, "messages": [{"role": "system", "content": system},
+               {"role": "user", "content": content}], "temperature": 0.45, "max_tokens": 1100}
+    try:
+        result = _post_json(endpoint, payload, headers, timeout=50)
+    except RuntimeError as exc:
+        # Keep ordinary chat working if the configured model is blocked for this project.
+        # The fallback is text-only, so image frames are intentionally omitted on retry.
+        if "API_HTTP_403" not in str(exc) or model == "llama-3.3-70b-versatile":
+            raise
+        log.warning("Configured Groq model returned 403; retrying with llama-3.3-70b-versatile")
+        payload["model"] = "llama-3.3-70b-versatile"
+        payload["messages"] = [
+            {"role": "system", "content": system + " If the user attached a video, explain that video-frame analysis was unavailable on this fallback and still help based on their text."},
+            {"role": "user", "content": user_text},
+        ]
+        result = _post_json(endpoint, payload, headers, timeout=50)
     return result["choices"][0]["message"]["content"].strip()
 
 
