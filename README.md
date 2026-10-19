@@ -11,12 +11,14 @@ Slash commands:
 - `/clip help` — command guide.
 - `/clip ping` — check gateway latency.
 - `/download link:<URL>` — choose download type, quality, and format.
+- `/bgremove` — open the BGremover photo/video green-screen tool.
 
 Prefix commands (default prefix is `!`):
 - `!clip search goku black`
 - `!clip random`
 - `!clip sources`
 - `!download https://...`
+- `!bgremove`
 - `!help`
 - `!prefix ?` — set this server's prefix to `?` (requires Manage Server permission)
 - `?help` — show the help guide with the current server prefix
@@ -75,6 +77,7 @@ Set `DISCORD_TOKEN` in your local `.env`. Never commit or share your real token.
 - `BOT_ACTIVITY_INTERVAL`: seconds between activity messages; minimum 15, default 30.
 - `BOT_ACTIVITY_NAME`: fallback activity text if `BOT_ACTIVITY_MESSAGES` is empty.
 - `BOT_STREAM_URL`: Twitch or YouTube URL, required for streaming activity.
+- `BGREMOVER_URL`: public URL of the BGremover website used by `/bgremove` and `!bgremove`.
 
 Example local `.env` configuration:
 
