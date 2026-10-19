@@ -323,7 +323,7 @@ class EditorAgent(commands.Cog):
     def save_channels(self):
         AGENT_CHANNELS_STORE.parent.mkdir(parents=True, exist_ok=True)
         payload = {guild_id: sorted(channel_ids) for guild_id, channel_ids in self.enabled_channels.items()}
-        AGENT_CHANNELS_STORE.write_text(json.dumps(payload, indent=2) + "\\n", encoding="utf-8")
+        AGENT_CHANNELS_STORE.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
     @commands.group(name="agent", invoke_without_command=True)
     @commands.guild_only()
