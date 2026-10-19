@@ -330,6 +330,7 @@ class DownloadCommands(commands.Cog):
         limit = getattr(guild, "filesize_limit", None) if guild else None
         return max(1, (limit or DEFAULT_MAX_BYTES) - 512 * 1024)
 
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @app_commands.command(name="download", description="Choose download type, quality, and format.")
     @app_commands.describe(link="Public clip URL from a supported video platform. Only the first 60 seconds are downloaded.")
     @app_commands.checks.cooldown(1, 20.0)
