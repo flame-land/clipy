@@ -384,10 +384,11 @@ class EditorAgent(commands.Cog):
         prefix = prefix_for_message(self.bot, message)
         if message.content.startswith(prefix):
             return
-        if self.bot.user and self.bot.user in message.mentions:
-            return
+        mentioned = bool(self.bot.user and self.bot.user in message.mentions)
         content = message.content.strip()
-        looks_like_help = any(word in content.lower() for word in TRIGGER_WORDS) or "?" in content
+        lowered = content.lower()
+        greeting = lowered.strip(" !.,") in {"hi", "hello", "hey", "hey clipy", "hi clipy", "hello clipy"}
+        looks_like_help = mentioned or greeting or any(word in lowered for word in TRIGGER_WORDS) or "?" in content
         video = next((
             item for item in message.attachments
             if (item.content_type or "").startswith("video/")
