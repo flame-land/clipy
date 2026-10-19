@@ -99,7 +99,7 @@ def _groq_answer(task: str, software: str, details: str, sources: list[dict], fr
         f"- {item['title']}: {item['url']}\n  Search snippet: {item['content']}" for item in sources
     ) or "No web sources were retrieved. Do not invent links or claim a resource is verified."
     system = (
-        "You are Clipy's editing coach in a Discord community. Be polite, calm, confident, and practical. "
+        "You are Clipy, a friendly conversational assistant and editing coach. Chat naturally, respond to greetings and casual messages, and help people with editing questions step by step. Don't force users through a wizard. Be polite, practical, and concise. "
         "Never shame beginners. Tailor answers to the chosen editor. Give actionable steps and explain why. "
         "Ask one focused follow-up only if essential. Never invent preset links, credentials, or sources. "
         "Use supplied web results as evidence, prefer official sources, and warn about suspicious downloads. "
@@ -384,31 +384,61 @@ class EditorAgent(commands.Cog):
         prefix = prefix_for_message(self.bot, message)
         if message.content.startswith(prefix):
             return
-        mentioned = bool(self.bot.user and self.bot.user in message.mentions)
         content = message.content.strip()
-        lowered = content.lower()
-        greeting = lowered.strip(" !.,") in {"hi", "hello", "hey", "hey clipy", "hi clipy", "hello clipy"}
-        looks_like_help = mentioned or greeting or any(word in lowered for word in TRIGGER_WORDS) or "?" in content
-        video = next((
-            item for item in message.attachments
-            if (item.content_type or "").startswith("video/")
-        ), None)
-        if not looks_like_help and video is None:
+        mentioned = bool(self.bot.user and self.bot.user in message.mentions)
+        if self.bot.user:
+            content = content.replace("<@" + str(self.bot.user.id) + ">", "").replace("<@!" + str(self.bot.user.id) + ">", "").strip()
+        video = next((a for a in message.attachments if (a.content_type or "").startswith("video/")), None)
+        if not content and not video and not mentioned:
             return
         key = (message.channel.id, message.author.id)
         now = time.monotonic()
-        if now - self._last_trigger.get(key, 0) < 45:
+        if now - self._last_trigger.get(key, 0) < 4:
             return
         self._last_trigger[key] = now
+        temp_path = None
         try:
-            await message.reply(
-                view=EditorWizard(message.author.id, video, content),
-                mention_author=False,
-                allowed_mentions=discord.AllowedMentions.none(),
-            )
-        except discord.HTTPException:
-            log.info("Could not show editor wizard in channel %s", message.channel.id)
-
+            frames: list[str] = []
+            if video:
+                if video.size > MAX_VIDEO_BYTES:
+                    await message.reply("That video is over 18 MB. Send a smaller export and I’ll review it.", mention_author=False)
+                    return
+                suffix = Path(urlparse(video.filename).path).suffix[:10] or ".mp4"
+                with tempfile.NamedTemporaryFile(prefix="clipy_chat_", suffix=suffix, delete=False) as handle:
+                    temp_path = handle.name
+                await video.save(temp_path)
+                frames = await asyncio.wait_for(asyncio.to_thread(_extract_frames, temp_path), timeout=35)
+                if not frames:
+                    await message.reply("I couldn’t read that video. Try sending an MP4 export.", mention_author=False)
+                    return
+                content += "\nPlease review the attached edit using the sampled frames and suggest specific improvements."
+            sources: list[dict] = []
+            lowered = content.lower()
+            if any(w in lowered for w in ("xml", "preset", "overlay", "resource", "download link", "plugin", "tutorial")) and os.getenv("TAVILY_API_KEY", "").strip():
+                try:
+                    sources = await asyncio.wait_for(asyncio.to_thread(_search_web, content), timeout=20)
+                except Exception:
+                    log.warning("Tavily search failed", exc_info=True)
+            async with message.channel.typing():
+                answer = await asyncio.wait_for(asyncio.to_thread(_groq_answer, "General chat and editing help", "Ask if needed", content or "The user greeted you. Reply naturally and ask how you can help.", sources, frames), timeout=55)
+            if video:
+                answer += "\n\n*Feedback is based on sampled frames, not full motion or audio.*"
+            await message.reply(answer[:1900], mention_author=False, allowed_mentions=discord.AllowedMentions.none())
+        except RuntimeError as exc:
+            if str(exc) == "AI_NOT_CONFIGURED":
+                await message.reply("My AI isn’t connected yet. The server admin needs to set `GROQ_API_KEY` in the bot host.", mention_author=False)
+            else:
+                log.exception("Editor agent configuration error")
+                await message.reply("I hit an error while replying. Please try again shortly.", mention_author=False)
+        except Exception:
+            log.exception("Editor agent message handler failed")
+            await message.reply("I couldn’t reply just now. The bot host logs should show the error.", mention_author=False)
+        finally:
+            if temp_path:
+                try:
+                    os.unlink(temp_path)
+                except OSError:
+                    pass
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @app_commands.command(name="editor", description="Get tailored editing advice, ideas, and video feedback.")
     @app_commands.describe(video="Optional video to review (up to 18 MB).")
