@@ -54,8 +54,7 @@ def help_message(prefix: str | None = None) -> str:
         f"`{p}help`\n"
         f"`{p}prefix <new-prefix>` — change this server's prefix (Manage Server permission)\n"
         f"`{p}ping`\n\n"
-        "You can also mention the bot before a prefix command. Enable Message Content Intent "
-        "in the Developer Portal for prefix and mention commands."
+        "You can also mention Clipy before a prefix command."
     )
 
 
