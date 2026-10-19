@@ -100,7 +100,7 @@ def _groq_answer(task: str, software: str, details: str, sources: list[dict], fr
     key = os.getenv("GROQ_API_KEY", "").strip()
     if not key:
         raise RuntimeError("AI_NOT_CONFIGURED")
-    model = os.getenv("EDITOR_AI_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct").strip()
+    model = os.getenv("EDITOR_AI_MODEL", "openai/gpt-oss-120b").strip()
     source_text = "\n".join(
         f"- {item['title']}: {item['url']}\n  Search snippet: {item['content']}" for item in sources
     ) or "No web sources were retrieved. Do not invent links or claim a resource is verified."
@@ -129,12 +129,13 @@ def _groq_answer(task: str, software: str, details: str, sources: list[dict], fr
     try:
         result = _post_json(endpoint, payload, headers, timeout=50)
     except RuntimeError as exc:
-        # Keep ordinary chat working if the configured model is blocked for this project.
-        # The fallback is text-only, so image frames are intentionally omitted on retry.
-        if "API_HTTP_403" not in str(exc) or model == "llama-3.3-70b-versatile":
+        # Retry with a currently listed Groq model if the configured model is denied.
+        # A network-policy 403 may still fail; in that case the original diagnostic is surfaced.
+        fallback_model = "openai/gpt-oss-120b"
+        if "API_HTTP_403" not in str(exc) or model == fallback_model:
             raise
-        log.warning("Configured Groq model returned 403; retrying with llama-3.3-70b-versatile")
-        payload["model"] = "llama-3.3-70b-versatile"
+        log.warning("Configured Groq model returned 403; retrying with %s", fallback_model)
+        payload["model"] = fallback_model
         payload["messages"] = [
             {"role": "system", "content": system + " If the user attached a video, explain that video-frame analysis was unavailable on this fallback and still help based on their text."},
             {"role": "user", "content": user_text},
