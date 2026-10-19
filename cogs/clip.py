@@ -161,7 +161,7 @@ class ClipCommands(
         if not url.startswith(("https://", "http://")):
             await interaction.response.send_message(view=status_view("Green-screen tool", "The website link has not been configured yet. Ask a server admin to set BGREMOVER_URL."), ephemeral=True)
             return
-        await interaction.response.send_message(view=status_view("AI green screen", f"Remove the background from a photo or short video, then download it with a solid green background.\\n\\n[Open BGremover]({url})\\n\\nPhotos: PNG, JPG, WebP, BMP · Videos: MP4, MOV, MKV, WebM, AVI."))
+        await interaction.response.send_message(view=status_view("AI green screen", f"Remove the background from a photo or short video, then download it with a solid green background.\n\n[Open BGremover]({url})\n\nPhotos: PNG, JPG, WebP, BMP · Videos: MP4, MOV, MKV, WebM, AVI."))
 
     @app_commands.command(name="ping", description="Check Clipy's response latency.")
     async def ping(self, interaction: discord.Interaction):
@@ -270,7 +270,7 @@ class ClipCommands(
         if not url.startswith(("https://", "http://")):
             await ctx.send(view=status_view("Green-screen tool", "The website link has not been configured yet. Ask a server admin to set BGREMOVER_URL."))
             return
-        await ctx.send(view=status_view("AI green screen", f"Remove the background from a photo or short video, then download it with a solid green background.\\n\\n[Open BGremover]({url})\\n\\nPhotos: PNG, JPG, WebP, BMP · Videos: MP4, MOV, MKV, WebM, AVI."))
+        await ctx.send(view=status_view("AI green screen", f"Remove the background from a photo or short video, then download it with a solid green background.\n\n[Open BGremover]({url})\n\nPhotos: PNG, JPG, WebP, BMP · Videos: MP4, MOV, MKV, WebM, AVI."))
 
     @commands.command(name="ping")
     async def prefix_ping(self, ctx: commands.Context):
