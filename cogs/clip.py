@@ -43,12 +43,14 @@ def help_message(prefix: str | None = None) -> str:
         "`/clip sources` — supported download sources\n"
         "`/clip help` — show this guide\n"
         "`/clip ping` — check latency\n"
-        "`/download <link>` — download the first 60 seconds of a public video\n\n"
+        "`/download <link>` — download the first 60 seconds of a public video\n"
+        "`/bgremove` — open the green-screen tool\n\n"
         "**Prefix commands**\n"
         f"`{p}clip search <keywords>`\n"
         f"`{p}clip random`\n"
         f"`{p}clip sources`\n"
         f"`{p}download <URL>`\n"
+        f"`{p}bgremove` — open the green-screen tool\n"
         f"`{p}help`\n"
         f"`{p}prefix <new-prefix>` — change this server's prefix (Manage Server permission)\n"
         f"`{p}ping`\n\n"
@@ -153,6 +155,14 @@ class ClipCommands(
             view=status_view("Clipy commands", help_message(prefix)), ephemeral=True
         )
 
+    @app_commands.command(name="bgremove", description="Open the AI green-screen tool for photos and videos.")
+    async def bgremove(self, interaction: discord.Interaction):
+        url = os.getenv("BGREMOVER_URL", "").strip().rstrip("/")
+        if not url.startswith(("https://", "http://")):
+            await interaction.response.send_message(view=status_view("Green-screen tool", "The website link has not been configured yet. Ask a server admin to set BGREMOVER_URL."), ephemeral=True)
+            return
+        await interaction.response.send_message(view=status_view("AI green screen", f"Remove the background from a photo or short video, then download it with a solid green background.\\n\\n[Open BGremover]({url})\\n\\nPhotos: PNG, JPG, WebP, BMP · Videos: MP4, MOV, MKV, WebM, AVI."))
+
     @app_commands.command(name="ping", description="Check Clipy's response latency.")
     async def ping(self, interaction: discord.Interaction):
         await interaction.response.send_message(
@@ -253,6 +263,14 @@ class ClipCommands(
     @commands.command(name="help")
     async def prefix_help(self, ctx: commands.Context):
         await ctx.send(view=status_view("Clipy commands", help_message(prefix_text(ctx))))
+
+    @commands.command(name="bgremove")
+    async def prefix_bgremove(self, ctx: commands.Context):
+        url = os.getenv("BGREMOVER_URL", "").strip().rstrip("/")
+        if not url.startswith(("https://", "http://")):
+            await ctx.send(view=status_view("Green-screen tool", "The website link has not been configured yet. Ask a server admin to set BGREMOVER_URL."))
+            return
+        await ctx.send(view=status_view("AI green screen", f"Remove the background from a photo or short video, then download it with a solid green background.\\n\\n[Open BGremover]({url})\\n\\nPhotos: PNG, JPG, WebP, BMP · Videos: MP4, MOV, MKV, WebM, AVI."))
 
     @commands.command(name="ping")
     async def prefix_ping(self, ctx: commands.Context):
