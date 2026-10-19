@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import time
 import urllib.request
+import urllib.error
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -48,8 +49,13 @@ def _post_json(url: str, payload: dict, headers: dict[str, str], timeout: int = 
         url, data=json.dumps(payload).encode("utf-8"),
         headers={"Content-Type": "application/json", **headers}, method="POST"
     )
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        return json.loads(response.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")[:1200]
+        log.error("API request failed (%s): %s", exc.code, body)
+        raise RuntimeError(f"API_HTTP_{exc.code}: {body}") from exc
 
 
 def _search_web(query: str) -> list[dict]:
@@ -429,10 +435,12 @@ class EditorAgent(commands.Cog):
                 await message.reply("My AI isn’t connected yet. The server admin needs to set `GROQ_API_KEY` in the bot host.", mention_author=False)
             else:
                 log.exception("Editor agent configuration error")
-                await message.reply("I hit an error while replying. Please try again shortly.", mention_author=False)
-        except Exception:
+                diagnostic = str(exc).replace("`", "'")[:900]
+                await message.reply("My AI request failed: " + diagnostic, mention_author=False)
+        except Exception as exc:
             log.exception("Editor agent message handler failed")
-            await message.reply("I couldn’t reply just now. The bot host logs should show the error.", mention_author=False)
+            detail = (str(exc).strip() or type(exc).__name__).replace("`", "'")[:700]
+            await message.reply("I couldn't generate a reply (" + type(exc).__name__ + "): " + detail, mention_author=False)
         finally:
             if temp_path:
                 try:
