@@ -8,6 +8,7 @@ import logging
 import os
 import subprocess
 import tempfile
+import time
 import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse
@@ -33,6 +34,12 @@ SOFTWARE = {
 }
 MAX_VIDEO_BYTES = 18 * 1024 * 1024
 MAX_FRAME_BYTES = 700_000
+AGENT_CHANNELS_STORE = Path(os.getenv("AGENT_CHANNELS_STORE", "data/editor_channels.json"))
+TRIGGER_WORDS = (
+    "help", "how do", "how can", "where can", "where do", "anyone know",
+    "suggest", "recommend", "which", "preset", "xml", "transition", "edit",
+    "improve", "effect", "vfx", "color grade", "resource", "overlay", "feedback",
+)
 
 
 def _post_json(url: str, payload: dict, headers: dict[str, str], timeout: int = 35) -> dict:
@@ -125,6 +132,7 @@ class EditorDetailsModal(discord.ui.Modal):
             label="What do you want help with?",
             placeholder="e.g. a sharp impact transition for a Goku Black edit...",
             style=discord.TextStyle.paragraph, min_length=5, max_length=1500, required=True,
+            default=self.owner.initial_details[:1500] if self.owner.initial_details else discord.utils.MISSING,
         )
         self.add_item(self.details)
 
@@ -134,10 +142,11 @@ class EditorDetailsModal(discord.ui.Modal):
 
 
 class EditorWizard(discord.ui.LayoutView):
-    def __init__(self, requester_id: int, attachment: discord.Attachment | None):
+    def __init__(self, requester_id: int, attachment: discord.Attachment | None, initial_details: str = ""):
         super().__init__(timeout=240)
         self.requester_id = requester_id
         self.attachment = attachment
+        self.initial_details = initial_details.strip()
         self.task = "transition"
         self.software = "any"
         self.render()
@@ -269,6 +278,108 @@ class EditorWizard(discord.ui.LayoutView):
 class EditorAgent(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.enabled_channels: dict[str, set[int]] = {}
+        self._last_trigger: dict[tuple[int, int], float] = {}
+        try:
+            if AGENT_CHANNELS_STORE.exists():
+                raw = json.loads(AGENT_CHANNELS_STORE.read_text(encoding="utf-8"))
+                if isinstance(raw, dict):
+                    self.enabled_channels = {
+                        str(guild_id): {int(channel_id) for channel_id in channel_ids}
+                        for guild_id, channel_ids in raw.items()
+                        if isinstance(channel_ids, list)
+                    }
+        except (OSError, ValueError, TypeError):
+            log.exception("Could not load enabled editor-agent channels")
+
+    def save_channels(self):
+        AGENT_CHANNELS_STORE.parent.mkdir(parents=True, exist_ok=True)
+        payload = {guild_id: sorted(channel_ids) for guild_id, channel_ids in self.enabled_channels.items()}
+        AGENT_CHANNELS_STORE.write_text(json.dumps(payload, indent=2) + "\\n", encoding="utf-8")
+
+    @commands.group(name="agent", invoke_without_command=True)
+    @commands.guild_only()
+    async def agent_settings(self, ctx: commands.Context):
+        prefix = prefix_for(ctx)
+        await ctx.send(
+            "Use " + prefix + "agent enable #channel to enable the editing coach, or "
+            + prefix + "agent disable #channel to turn it off. Requires Manage Server permission."
+        )
+
+    @agent_settings.command(name="enable")
+    @commands.guild_only()
+    @commands.has_guild_permissions(manage_guild=True)
+    async def agent_enable(self, ctx: commands.Context, channel: discord.TextChannel):
+        guild_id = str(ctx.guild.id)
+        channels = self.enabled_channels.setdefault(guild_id, set())
+        if channel.id in channels:
+            await ctx.send("The editing coach is already enabled in " + channel.mention + ".")
+            return
+        channels.add(channel.id)
+        try:
+            self.save_channels()
+        except OSError:
+            channels.discard(channel.id)
+            await ctx.send("I couldn't save that setting. Check that the bot host allows writing files.")
+            return
+        await ctx.send(
+            "Editing coach enabled in " + channel.mention +
+            ". I'll offer the interactive helper when someone asks for editing help or resources there."
+        )
+
+    @agent_settings.command(name="disable")
+    @commands.guild_only()
+    @commands.has_guild_permissions(manage_guild=True)
+    async def agent_disable(self, ctx: commands.Context, channel: discord.TextChannel):
+        guild_id = str(ctx.guild.id)
+        channels = self.enabled_channels.get(guild_id, set())
+        if channel.id not in channels:
+            await ctx.send("The editing coach isn't enabled in " + channel.mention + ".")
+            return
+        channels.discard(channel.id)
+        if not channels:
+            self.enabled_channels.pop(guild_id, None)
+        try:
+            self.save_channels()
+        except OSError:
+            self.enabled_channels.setdefault(guild_id, set()).add(channel.id)
+            await ctx.send("I couldn't save that setting. Check that the bot host allows writing files.")
+            return
+        await ctx.send("Editing coach disabled in " + channel.mention + ".")
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.author.bot or message.guild is None:
+            return
+        if message.channel.id not in self.enabled_channels.get(str(message.guild.id), set()):
+            return
+        prefix = prefix_for_message(self.bot, message)
+        if message.content.startswith(prefix):
+            return
+        if self.bot.user and self.bot.user in message.mentions:
+            return
+        content = message.content.strip()
+        looks_like_help = any(word in content.lower() for word in TRIGGER_WORDS) or "?" in content
+        video = next((
+            item for item in message.attachments
+            if (item.content_type or "").startswith("video/")
+        ), None)
+        if not looks_like_help and video is None:
+            return
+        key = (message.channel.id, message.author.id)
+        now = time.monotonic()
+        if now - self._last_trigger.get(key, 0) < 45:
+            return
+        self._last_trigger[key] = now
+        try:
+            await message.reply(
+                content="I can help with that. Choose the type of help and your editor first:",
+                view=EditorWizard(message.author.id, video, content),
+                mention_author=False,
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+        except discord.HTTPException:
+            log.info("Could not show editor wizard in channel %s", message.channel.id)
 
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @app_commands.command(name="editor", description="Get tailored editing advice, ideas, and video feedback.")
@@ -288,6 +399,20 @@ class EditorAgent(commands.Cog):
         await interaction.response.send_message(
             view=EditorWizard(interaction.user.id, video), ephemeral=True
         )
+
+
+def prefix_for(ctx: commands.Context) -> str:
+    default = os.getenv("BOT_PREFIX", "!").strip() or "!"
+    if ctx.guild is not None:
+        return getattr(ctx.bot, "guild_prefixes", {}).get(str(ctx.guild.id), default)
+    return default
+
+
+def prefix_for_message(bot: commands.Bot, message: discord.Message) -> str:
+    default = os.getenv("BOT_PREFIX", "!").strip() or "!"
+    if message.guild is not None:
+        return getattr(bot, "guild_prefixes", {}).get(str(message.guild.id), default)
+    return default
 
 
 async def setup(bot: commands.Bot):
