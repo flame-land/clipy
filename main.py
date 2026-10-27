@@ -105,9 +105,8 @@ def welcome_embed(guild: discord.Guild) -> discord.Embed:
     embed.add_field(
         name="⬇️ Download public clips",
         value=(
-            "`/download` or `!download <URL>` — open the download options. "
-            "Clipy processes up to the first 60 seconds and offers video/audio formats. "
-            "Only public links from supported sites may work."
+            "`/download` or `!download` — open the BGremover website downloader. "
+            "Choose video/audio and quality on the website."
         ),
         inline=False,
     )
