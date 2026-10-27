@@ -12,6 +12,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from utils.components import status_view
+
 log = logging.getLogger(__name__)
 
 STORE = Path(os.getenv("LINKONLY_STORE", "data/linkonly_channels.json"))
@@ -123,7 +125,7 @@ class LinkOnly(commands.Cog):
     @app_commands.describe(channel="The text channel to restrict.")
     async def slash_set(self, interaction: discord.Interaction, channel: discord.TextChannel):
         _, message = await self._set_channel(interaction.guild, channel, True)
-        await interaction.response.send_message(message, ephemeral=True)
+        await interaction.response.send_message(view=status_view("Link-only mode", message, ephemeral_colour=True), ephemeral=True)
 
     @linkonly.command(name="remove", description="Turn off link-only mode in a channel.")
     @app_commands.guild_only()
@@ -131,7 +133,7 @@ class LinkOnly(commands.Cog):
     @app_commands.describe(channel="The text channel to unrestrict.")
     async def slash_remove(self, interaction: discord.Interaction, channel: discord.TextChannel):
         _, message = await self._set_channel(interaction.guild, channel, False)
-        await interaction.response.send_message(message, ephemeral=True)
+        await interaction.response.send_message(view=status_view("Link-only mode", message, ephemeral_colour=True), ephemeral=True)
 
     @commands.group(name="linkonly", invoke_without_command=True)
     @commands.guild_only()
@@ -139,24 +141,24 @@ class LinkOnly(commands.Cog):
         prefix = getattr(ctx.bot, "guild_prefixes", {}).get(
             str(ctx.guild.id), os.getenv("BOT_PREFIX", "!")
         )
-        await ctx.send(
-            f"Use '{prefix}linkonly set #channel' or '{prefix}linkonly remove #channel'. "
-            "Requires **Manage Server** permission."
-        )
+        await ctx.send(view=status_view(
+            "Link-only commands",
+            f"Use `{prefix}linkonly set #channel` or `{prefix}linkonly remove #channel`. Requires **Manage Server** permission."
+        ))
 
     @prefix_linkonly.command(name="set")
     @commands.guild_only()
     @commands.has_guild_permissions(manage_guild=True)
     async def prefix_set(self, ctx: commands.Context, channel: discord.TextChannel):
         _, message = await self._set_channel(ctx.guild, channel, True)
-        await ctx.send(message)
+        await ctx.send(view=status_view("Link-only mode", message))
 
     @prefix_linkonly.command(name="remove")
     @commands.guild_only()
     @commands.has_guild_permissions(manage_guild=True)
     async def prefix_remove(self, ctx: commands.Context, channel: discord.TextChannel):
         _, message = await self._set_channel(ctx.guild, channel, False)
-        await ctx.send(message)
+        await ctx.send(view=status_view("Link-only mode", message))
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -194,7 +196,7 @@ class LinkOnly(commands.Cog):
                     f"**#{channel_name}** only allows one valid HTTP(S) URL per message, with no extra text. "
                     "The bot could not remove your message because it lacks permission."
                 )
-            await message.author.send(warning)
+            await message.author.send(view=status_view("Link-only notice", warning))
         except (discord.Forbidden, discord.HTTPException):
             log.info("Could not DM link-only warning to user %s", message.author.id)
 
