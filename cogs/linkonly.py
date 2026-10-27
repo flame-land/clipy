@@ -85,7 +85,7 @@ class LinkOnly(commands.Cog):
         enabled: bool,
     ) -> tuple[bool, str]:
         bot_member = guild.me
-        if bot_member is None or not channel.permissions_for(bot_member).manage_messages:
+        if enabled and (bot_member is None or not channel.permissions_for(bot_member).manage_messages):
             return False, f"I need **Manage Messages** in {channel.mention} to enforce link-only mode."
 
         guild_key = str(guild.id)
