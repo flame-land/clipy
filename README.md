@@ -13,9 +13,6 @@ Slash commands:
 - `/download link:<URL>` — choose download type, quality, and format.
 - `/linkonly set #channel` / `/linkonly remove #channel` — enable or disable link-only mode (Manage Server).
 - `/bgremove` — open the BGremover photo/video green-screen tool.
-- `/editor` — interactive editing coach for transitions, effects, color grading, presets, and video feedback.
-- `/editor-enable channel:` — enable the editing coach in a channel (Manage Server required).
-- `/editor-disable channel:` — disable it in a channel (Manage Server required).
 
 Prefix commands (default prefix is `!`):
 - `!clip search goku black`
@@ -24,8 +21,6 @@ Prefix commands (default prefix is `!`):
 - `!download https://...`
 - `!linkonly set #channel` / `!linkonly remove #channel` — manage link-only mode (Manage Server).
 - `!bgremove`
-- `!agent enable #channel` — enable the editing coach in a channel (Manage Server required).
-- `!agent disable #channel` — disable it in a channel.
 - `!help`
 - `!prefix ?` — set this server's prefix to `?` (requires Manage Server permission)
 - `?help` — show the help guide with the current server prefix
@@ -39,11 +34,6 @@ When Clipy joins a server, it sends a welcome/setup guide to the server's system
 
 The guide explains search, download, help, and setup. If no suitable channel permissions are available, the server message is skipped. If the owner has DMs disabled or blocks messages from server members, the DM may not be delivered. The bot cannot reliably identify the exact person who clicked Authorize, so the direct message is sent to the server owner.
 
-## AI editing coach
-
-Run `/editor` for a private interactive session, or enable the agent in a channel with `!agent enable #channel`. In an enabled channel, Clipy offers the interactive helper when a message looks like a request for help or includes a video. The user chooses a help category and editing software before getting tailored guidance. Use `!agent disable #channel` to stop it. Both setup commands require **Manage Server** permission. Enabled channels are saved in `data/editor_channels.json`; persistence depends on whether the host keeps local files between restarts.
-
-Set `GROQ_API_KEY` in the host environment for AI responses. Set `TAVILY_API_KEY` as well to research XMLs, presets, overlays, and other resources. Keep both keys private and out of GitHub. Video feedback samples up to four frames from videos up to 18 MB; it does not fully analyze motion or audio.
 
 ## Link-only channels
 
