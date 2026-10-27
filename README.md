@@ -11,6 +11,7 @@ Slash commands:
 - `/clip help` — command guide.
 - `/clip ping` — check gateway latency.
 - `/download link:<URL>` — choose download type, quality, and format.
+- `/linkonly set #channel` / `/linkonly remove #channel` — enable or disable link-only mode (Manage Server).
 - `/bgremove` — open the BGremover photo/video green-screen tool.
 - `/editor` — interactive editing coach for transitions, effects, color grading, presets, and video feedback.
 - `/editor-enable channel:` — enable the editing coach in a channel (Manage Server required).
@@ -21,6 +22,7 @@ Prefix commands (default prefix is `!`):
 - `!clip random`
 - `!clip sources`
 - `!download https://...`
+- `!linkonly set #channel` / `!linkonly remove #channel` — manage link-only mode (Manage Server).
 - `!bgremove`
 - `!agent enable #channel` — enable the editing coach in a channel (Manage Server required).
 - `!agent disable #channel` — disable it in a channel.
@@ -42,6 +44,12 @@ The guide explains search, download, help, and setup. If no suitable channel per
 Run `/editor` for a private interactive session, or enable the agent in a channel with `!agent enable #channel`. In an enabled channel, Clipy offers the interactive helper when a message looks like a request for help or includes a video. The user chooses a help category and editing software before getting tailored guidance. Use `!agent disable #channel` to stop it. Both setup commands require **Manage Server** permission. Enabled channels are saved in `data/editor_channels.json`; persistence depends on whether the host keeps local files between restarts.
 
 Set `GROQ_API_KEY` in the host environment for AI responses. Set `TAVILY_API_KEY` as well to research XMLs, presets, overlays, and other resources. Keep both keys private and out of GitHub. Video feedback samples up to four frames from videos up to 18 MB; it does not fully analyze motion or audio.
+
+## Link-only channels
+
+Use `/linkonly set #channel` to enable link-only mode, or `/linkonly remove #channel` to disable it. Prefix equivalents are `!linkonly set #channel` and `!linkonly remove #channel` (replace `!` if this server uses a custom prefix). Configuration requires **Manage Server** permission, and Clipy needs **Manage Messages** in each restricted channel.
+
+In a restricted channel, each member message must contain exactly one standalone HTTP(S) URL with no accompanying text or attachments. Other messages are deleted and Clipy attempts to DM the author an English warning. Settings are stored in `data/linkonly_channels.json`; persistence across restarts depends on the host preserving that file.
 
 ## Downloads
 
